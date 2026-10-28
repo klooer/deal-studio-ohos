@@ -222,6 +222,12 @@ struct GeneratePage {
   @State generating: boolean = false
   @State modelReady: boolean = false
   @State mode: string = MODE_DEEPSEEK
+  // The model the picker last selected. The subtitle and chip highlights read
+  // this instead of settings.getModel() directly so that tapping a chip (which
+  // changes the stored model at runtime) re-renders them -- settings is not
+  // @State, so a method that only reads it does not re-evaluate when the model
+  // changes. Kept in sync in aboutToAppear, checkDeepSeek and the chip onClick.
+  @State selectedModel: string = ''
   @State attempt: number = 0
   @State compiled: boolean = false
   @State compileErrors: string = ''
@@ -337,6 +343,7 @@ struct GeneratePage {
     }
     let context = this.hostContext()
     settings.init(context.filesDir)
+    this.selectedModel = settings.getModel()
     initTrace(context.filesDir)
     // Shrink the page for the keyboard instead of panning it: panning slides
     // the preview up under the title bar, and with the refine field pinned at
@@ -403,6 +410,7 @@ struct GeneratePage {
   }
 
   private checkDeepSeek(): void {
+    this.selectedModel = settings.getModel()
     if (settings.hasApiKey()) {
       // A stub build cannot load the embedding model, so discovery falls back to
       // keywords; that belongs next to the provider line, which is what stays up.
@@ -1531,7 +1539,7 @@ struct GeneratePage {
   }
 
   private modeSubtitle(): string {
-    if (this.mode === MODE_DEEPSEEK) { return settings.getModel() + ' - agent loop on device' }
+    if (this.mode === MODE_DEEPSEEK) { return (this.selectedModel.length > 0 ? this.selectedModel : settings.getModel()) + ' - agent loop on device' }
     if (this.mode === MODE_SERVER) { return serverUrl() }
     return 'On-device Qwen3-Coder-3B'
   }
@@ -1546,6 +1554,32 @@ struct GeneratePage {
     if (this.mode === MODE_DEEPSEEK) { return '#2E7D32' }
     if (this.mode === MODE_SERVER) { return '#1565C0' }
     return '#E65100'
+  }
+
+  /** Labels for the dashscope model picker, in candidate order. */
+  private modelPickerLabels(): string[] {
+    let labels: string[] = []
+    for (let i = 0; i < settings.modelCandidateCount(); i++) {
+      labels.push(settings.modelCandidateLabel(i))
+    }
+    return labels
+  }
+
+  /** Index of the selected model among the candidates, or -1 if it is not one. */
+  private selectedModelIndex(): number {
+    let m = this.selectedModel.length > 0 ? this.selectedModel : settings.getModel()
+    for (let i = 0; i < settings.modelCandidateCount(); i++) {
+      if (settings.modelCandidateModel(i) === m) { return i }
+    }
+    return -1
+  }
+
+  private modelPickerTint(index: number): string {
+    return this.selectedModelIndex() === index ? '#E8F5E9' : '#F0F0F0'
+  }
+
+  private modelPickerInk(index: number): string {
+    return this.selectedModelIndex() === index ? '#2E7D32' : '#666666'
   }
 
   private nextMode(): string {
@@ -1741,6 +1775,33 @@ struct GeneratePage {
         }
         .width('100%')
         .padding({ left: 16, right: 16, top: 8 })
+
+        // The three dashscope models (glm-5.2 and the two deepseek-v4 ones) share
+        // one key and base URL, so the choice is the model name alone -- which also
+        // flips isDeepSeek() and so the request shape (native thinking for the
+        // deepseek models, enable_thinking for glm-5.2). Shown only when the
+        // configured endpoint is dashscope; tapping applies and persists.
+        if (this.mode === MODE_DEEPSEEK && settings.isDashscopeProvider() && settings.hasApiKey()) {
+          Row({ space: 6 }) {
+            ForEach(this.modelPickerLabels(), (label: string, index: number) => {
+              Button(label)
+                .type(ButtonType.Normal)
+                .fontSize(11)
+                .height(26)
+                .borderRadius(6)
+                .backgroundColor(this.modelPickerTint(index))
+                .fontColor(this.modelPickerInk(index))
+                .enabled(!this.generating)
+                .onClick(() => {
+                  settings.applyModelCandidate(index)
+                  this.selectedModel = settings.getModel()
+                  this.checkDeepSeek()
+                })
+            }, (label: string, index: number) => label + index.toString())
+          }
+          .width('100%')
+          .padding({ left: 16, right: 16, top: 4 })
+        }
 
         // With a running program on screen the original request collapses to a
         // single line, leaving the height to the preview. Tapping it reopens

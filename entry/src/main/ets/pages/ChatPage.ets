@@ -414,6 +414,11 @@ struct ChatPage {
   @State draft: string = ''
   @State busy: boolean = false
   @State status: string = ''
+  // The active model, mirrored from settings so the idle status line can show it
+  // and re-render when it changes (e.g. the model was picked on the Generate page
+  // while Chat was in the background). settings is not @State, so reading it
+  // directly would not refresh; synced in aboutToAppear and onPageShow.
+  @State selectedModel: string = ''
   @State showStats: boolean = false
   @State chatId: string = ''
   @State title: string = ''
@@ -440,6 +445,7 @@ struct ChatPage {
   aboutToAppear(): void {
     let dir = this.hostContext().filesDir
     settings.init(dir)
+    this.selectedModel = settings.getModel()
     consent.init(dir)
     // The store VeraPreview saves a widget's state in, and the chats themselves.
     store.init(dir)
@@ -458,11 +464,34 @@ struct ChatPage {
   }
 
   onPageShow(): void {
+    // The model may have been changed on the Generate page while this page was in
+    // the background; re-read it so the idle status line shows what a reply will use.
+    this.selectedModel = settings.getModel()
     if (!settings.hasApiKey()) {
       this.status = 'No cloud API key yet (see CLAUDE.md)'
     } else if (this.status.startsWith('No cloud API key') || this.status.startsWith('No DeepSeek')) {
       this.status = ''
     }
+  }
+
+  /** What the idle status line shows: the provider, the active model a reply will use, and the masked key. */
+  private readyLine(): string {
+    let model = this.selectedModel.length > 0 ? this.selectedModel : settings.getModel()
+    return settings.providerLabel() + ' · ' + model + ' · key ' + settings.maskedKey()
+  }
+
+  /**
+   * The idle status line: the ready line plus the model-support note (stub-build
+   * warning) when there is one, so the note no longer hides the provider/model.
+   * With no key, just the note (if any). Shown only when status is empty -- i.e.
+   * not Thinking, not an error, not the no-key prompt.
+   */
+  private idleLine(): string {
+    let note = modelSupportNote()
+    if (settings.hasApiKey()) {
+      return note.length > 0 ? this.readyLine() + ' · ' + note : this.readyLine()
+    }
+    return note
   }
 
   /** Brings a saved chat back. A widget that was still building when it was closed cannot be resumed. */
@@ -566,8 +595,9 @@ struct ChatPage {
             .replace('{{UI_CATALOG}}', describeCatalogForPrompt())
             .replace('{{UI_TOOL_NOTE}}\n', '') + widget
           await capabilities
-          let note = modelSupportNote()
-          if (note.length > 0 && this.status.length === 0) { this.status = note }
+          // The model-support note (stub-build warning) is shown by idleLine()
+          // alongside the provider/model, not parked in status where it would
+          // hide the ready line on a stub build.
         } catch (e) {
           this.status = 'Failed to load resources: ' + (e as Error).message
           throw e as Error
@@ -942,6 +972,11 @@ struct ChatPage {
 
         if (this.status.length > 0) {
           Text(this.status).fontSize(12).fontColor('#888888').width('100%').padding({ left: 16, right: 16, bottom: 4 })
+        } else if (this.idleLine().length > 0) {
+          // Idle: show which provider/model a reply will use (plus the stub-build
+          // note when there is one), since the chat request reads settings.getModel()
+          // and the model is picked on the Generate page.
+          Text(this.idleLine()).fontSize(12).fontColor('#888888').width('100%').padding({ left: 16, right: 16, bottom: 4 })
         }
 
         Row({ space: 8 }) {

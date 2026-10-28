@@ -37,6 +37,22 @@ export const DEFAULT_DEEPSEEK_MODEL: string = 'deepseek-flash'
  */
 export const DEFAULT_REASONING_EFFORT: string = 'low'
 
+/**
+ * The dashscope OpenAI-compatible endpoint and the three models it fronts that
+ * this app is used with, as model/label pairs across two arrays (ArkTS does not
+ * take to object-literal records, and the rest of the file builds Records by
+ * assignment for the same reason). glm-5.2 is GLM's own model; the two
+ * deepseek-v4 models are DeepSeek models served through dashscope, so
+ * isDeepSeek() is true for them and the request carries DeepSeek's native
+ * thinking block, while glm-5.2 uses enable_thinking / reasoning_effort. All
+ * three share one key and one base URL, so picking among them is setModel alone
+ * -- the base URL is already dashscope when the picker is shown, and the stored
+ * key is shared, so nothing else has to change with the selection.
+ */
+export const DASHSCOPE_BASE_URL: string = 'https://dashscope.aliyuncs.com/compatible-mode/v1'
+const MODEL_CANDIDATE_MODELS: string[] = ['glm-5.2', 'deepseek-v4-flash-0731', 'deepseek-v4.1-flash-1017']
+const MODEL_CANDIDATE_LABELS: string[] = ['glm-5.2', 'ds-v4-flash', 'ds-v4.1-flash']
+
 function readText(path: string): string {
   try {
     let stat = fs.statSync(path)
@@ -223,6 +239,41 @@ export class SettingsStore {
     if (!this.loaded) { this.load() }
     this.baseUrl = url.trim()
     this.save()
+  }
+
+  /**
+   * Whether the configured endpoint is dashscope, where the candidate models
+   * live. The picker is shown only when this is true, so the candidates are
+   * always offered against the endpoint that actually fronts them.
+   */
+  isDashscopeProvider(): boolean {
+    return this.getBaseUrl().indexOf('aliyuncs.com') >= 0
+  }
+
+  modelCandidateCount(): number { return MODEL_CANDIDATE_MODELS.length }
+
+  modelCandidateModel(index: number): string { return MODEL_CANDIDATE_MODELS[index] }
+
+  modelCandidateLabel(index: number): string { return MODEL_CANDIDATE_LABELS[index] }
+
+  /** Index of the active model among the candidates, or -1 if it is not one of them. */
+  currentModelIndex(): number {
+    let m = this.getModel()
+    for (let i = 0; i < MODEL_CANDIDATE_MODELS.length; i++) {
+      if (MODEL_CANDIDATE_MODELS[i] === m) { return i }
+    }
+    return -1
+  }
+
+  /**
+   * Pick a candidate by index. Persisted, so it survives restarts and applies to
+   * Chat as well as Generate -- both read getModel() per request. Only the model
+   * changes: the base URL is already dashscope (the picker is shown only when
+   * isDashscopeProvider() is true) and the key is shared across all three.
+   */
+  applyModelCandidate(index: number): void {
+    if (index < 0 || index >= MODEL_CANDIDATE_MODELS.length) { return }
+    this.setModel(MODEL_CANDIDATE_MODELS[index])
   }
 
   /**
