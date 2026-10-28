@@ -120,9 +120,9 @@ export function jevLabel(info: RouteInfo): string {
 
 export function checkLabel(info: RouteInfo): string {
   if (info.check === CHECK_YESNO) { return 'Check: yes/no question picked ' + info.wanted + ' (' + info.wantedP.toFixed(2) + ')' }
-  if (info.check === CHECK_CONFIRMED) { return 'Check: DeepSeek confirmed ' + info.kinds.join(' + ') }
-  if (info.check === CHECK_REJECTED) { return 'Check: DeepSeek rejected it' }
-  if (info.check === CHECK_FAILED) { return 'Check: DeepSeek did not answer' }
+  if (info.check === CHECK_CONFIRMED) { return 'Check: the model confirmed ' + info.kinds.join(' + ') }
+  if (info.check === CHECK_REJECTED) { return 'Check: the model rejected it' }
+  if (info.check === CHECK_FAILED) { return 'Check: the model did not answer' }
   if (info.check === CHECK_OFF) { return 'Check: off' }
   return 'Check: not needed'
 }
@@ -144,7 +144,7 @@ export function routeWhy(info: RouteInfo): string {
     if (info.jev === JEV_SURE) {
       first = 'Jev was sure: it chose ' + built + '.'
     } else if (info.check === CHECK_CONFIRMED) {
-      first = 'Jev was unsure (' + weak + '), DeepSeek checked it and confirmed ' + built + '.'
+      first = 'Jev was unsure (' + weak + '), the model checked it and confirmed ' + built + '.'
     } else if (info.check === CHECK_YESNO) {
       first = 'Jev was unsure which block, but its yes/no question "does the request ask for ' + info.wanted + '" answered ' +
         info.wantedP.toFixed(2) + ', so ' + built + ' was built.'
@@ -164,11 +164,11 @@ export function routeWhy(info: RouteInfo): string {
   if (info.jev === JEV_UNAVAILABLE) { return 'Jev did not answer (' + info.note + ').' }
   if (info.jev === JEV_UNSURE) {
     if (info.check === CHECK_REJECTED) {
-      return 'Jev was unsure about ' + weak + '. DeepSeek checked and rejected it' +
+      return 'Jev was unsure about ' + weak + '. The model checked and rejected it' +
         (info.missing.length > 0 ? ': it cannot do ' + info.missing : '') + '.'
     }
-    if (info.check === CHECK_FAILED) { return 'Jev was unsure about ' + weak + ' and the DeepSeek check did not answer.' }
-    if (info.check === CHECK_OFF) { return 'Jev was unsure about ' + weak + ' and the DeepSeek check is off.' }
+    if (info.check === CHECK_FAILED) { return 'Jev was unsure about ' + weak + ' and the model check did not answer.' }
+    if (info.check === CHECK_OFF) { return 'Jev was unsure about ' + weak + ' and the model check is off.' }
     return 'Jev was unsure about ' + weak + '.'
   }
   return 'Jev found no block that fits this request.'

@@ -454,15 +454,15 @@ function httpErrorMessage(code: number, body: string): string {
   }
   let prefix = ''
   if (code === 401) {
-    prefix = 'API key rejected (401). Re-send it with: aa start -a EntryAbility -b com.vera.probe.dyn --ps deepseekKey <key>'
+    prefix = 'API key rejected (401). Re-send it with: aa start -a EntryAbility -b com.vera.probe.dyn --ps deepseekKey <key> (or --ps cloudKey <key>)'
   } else if (code === 402) {
-    prefix = 'DeepSeek account out of balance (402)'
+    prefix = 'Provider account out of balance (402)'
   } else if (code === 429) {
     prefix = 'Rate limited (429), retry in a moment'
   } else if (code === 400) {
     prefix = 'Request rejected (400)'
   } else if (code >= 500) {
-    prefix = 'DeepSeek server error (' + code + ')'
+    prefix = 'Provider server error (' + code + ')'
   } else {
     prefix = 'HTTP ' + code
   }
@@ -576,7 +576,7 @@ export class DeepSeekEngine {
       onProgress: ProgressCallback = noProgress): Promise<GenerateResult> {
     let key = settings.getApiKey()
     if (key.length === 0) {
-      throw new Error('No DeepSeek API key. Send one with: aa start -a EntryAbility -b com.vera.probe.dyn --ps deepseekKey <key>')
+      throw new Error('No cloud API key. Send one with: aa start -a EntryAbility -b com.vera.probe.dyn --ps deepseekKey <key> (or --ps cloudKey <key>)')
     }
     this.progress = new GenerateProgress()
     this.onProgress = onProgress
@@ -925,7 +925,7 @@ export class DeepSeekEngine {
       try {
         piece = decoder.decodeToString(new Uint8Array(chunk), { stream: true })
       } catch (e) {
-        console.error('DeepSeek decode failed: ' + (e as Error).message)
+        console.error('Stream decode failed: ' + (e as Error).message)
         return
       }
       this.rawBody += piece
@@ -954,7 +954,7 @@ export class DeepSeekEngine {
         code = 200
       } else {
         this.cleanup(client)
-        throw new Error('DeepSeek request failed: ' + (e as Error).message)
+        throw new Error(settings.providerLabel() + ' request failed: ' + (e as Error).message)
       }
     }
     this.cleanup(client)
@@ -990,11 +990,30 @@ export class DeepSeekEngine {
     let streamOptions: Record<string, Object> = {}
     streamOptions['include_usage'] = true
     payload['stream_options'] = streamOptions
-    let thinking: Record<string, Object> = {}
-    thinking['type'] = this.thinking ? 'enabled' : 'disabled'
-    payload['thinking'] = thinking
-    // Reasoning is most of a generation's time; see DEFAULT_REASONING_EFFORT.
-    if (this.thinking) { payload['reasoning_effort'] = settings.getReasoningEffort() }
+    // `thinking` and `reasoning_effort` are DeepSeek-only request fields; a
+    // plain OpenAI-compatible endpoint does not know them, so they are sent only
+    // when the configured base URL is DeepSeek's (SettingsStore.isDeepSeek).
+    if (settings.isDeepSeek()) {
+      let thinking: Record<string, Object> = {}
+      thinking['type'] = this.thinking ? 'enabled' : 'disabled'
+      payload['thinking'] = thinking
+      // Reasoning is most of a generation's time; see DEFAULT_REASONING_EFFORT.
+      if (this.thinking) { payload['reasoning_effort'] = settings.getReasoningEffort() }
+    } else {
+      // Other OpenAI-compatible providers (dashscope/glm-5.2, OpenAI, ...).
+      // glm-5.2 reasons by default and, with the large max_tokens a generation
+      // uses, will stream reasoning for many minutes and not finish -- seen live
+      // as a build stuck on "thinking...". The abc-agent config that drives the
+      // same model bounds it two ways: reasoning_effort (OpenAI-standard, caps
+      // thinking when it is on) and enable_thinking (the dashscope/glm switch
+      // that turns reasoning off entirely for the fast side calls that do not
+      // need it). Endpoints that do not know either field ignore it.
+      if (this.thinking) {
+        payload['reasoning_effort'] = settings.getReasoningEffort()
+      } else {
+        payload['enable_thinking'] = false
+      }
+    }
     payload['temperature'] = temperature
     payload['max_tokens'] = maxTokens
     // TOOLS_NONE is the forced final round (generate()): the model still sees

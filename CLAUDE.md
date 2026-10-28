@@ -104,6 +104,22 @@ restarts once stored:
 hdc shell aa start -a EntryAbility -b com.vera.probe.dyn --ps deepseekKey sk-...
 ```
 
+`deepseekKey` is the historical name (DeepSeek is the default provider); `cloudKey`
+is the provider-neutral alias for the same stored key. The cloud provider itself is
+configured the same way -- `apiBase` (the chat-completions base URL; the engine
+appends `/chat/completions`) and `apiModel` (the model name sent in the request),
+both persisted across restarts:
+
+```bash
+hdc shell aa start -a EntryAbility -b com.vera.probe.dyn \
+  --ps cloudKey sk-... --ps apiBase https://api.openai.com/v1 --ps apiModel gpt-4o
+```
+
+The client is OpenAI-compatible chat-completions, so any endpoint that speaks that
+shape works. DeepSeek-only request fields (`thinking`, `reasoning_effort`) are sent
+only when the base URL is DeepSeek's (`SettingsStore.isDeepSeek`), so pointing
+`apiBase` at another provider turns them off by itself.
+
 The same goes for `vera-server`, if the Server generation mode is wanted:
 `--ps veraServer http://host:port`. Neither has a default, and neither belongs
 in the source.

@@ -354,7 +354,7 @@ export async function chatReply(history: ChatTurn[], onText: (soFar: string) => 
     onVerifiedSearch: (text: string) => void = (_text: string): void => {}): Promise<string> {
   let key = settings.getApiKey()
   if (key.length === 0) {
-    throw new Error('No DeepSeek API key. Send one with: aa start -a EntryAbility -b com.vera.probe.dyn --ps deepseekKey <key>')
+    throw new Error('No cloud API key. Send one with: aa start -a EntryAbility -b com.vera.probe.dyn --ps deepseekKey <key> (or --ps cloudKey <key>)')
   }
   let canSearch = settings.hasExaKey()
   let messages: Record<string, Object>[] = [plain('system', canSearch ? CHAT_SYSTEM_PROMPT + SEARCH_NOTE : CHAT_SYSTEM_PROMPT)]
@@ -490,9 +490,18 @@ async function streamStep(messages: Record<string, Object>[], tools: Record<stri
   let streamOptions: Record<string, Object> = {}
   streamOptions['include_usage'] = true
   payload['stream_options'] = streamOptions
-  let thinking: Record<string, Object> = {}
-  thinking['type'] = 'disabled'
-  payload['thinking'] = thinking
+  // `thinking` is a DeepSeek-only field; omit it for any other OpenAI-compatible
+  // provider so the request carries only fields the endpoint knows. For glm-5.2
+  // (which reasons by default) turn reasoning off entirely the way the abc-agent
+  // config does -- chat does not need it, and without this each turn wastes
+  // ~1k tokens and several seconds on reasoning before the reply.
+  if (settings.isDeepSeek()) {
+    let thinking: Record<string, Object> = {}
+    thinking['type'] = 'disabled'
+    payload['thinking'] = thinking
+  } else {
+    payload['enable_thinking'] = false
+  }
   payload['temperature'] = 0.7
   payload['max_tokens'] = 4096
   if (tools.length > 0) { payload['tools'] = tools }

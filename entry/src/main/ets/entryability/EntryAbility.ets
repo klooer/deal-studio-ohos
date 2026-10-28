@@ -34,6 +34,8 @@ export default class EntryAbility extends UIAbility {
     loadCatalogFile(this.context.filesDir)
     startPowerKeyProbe()
     this.extractApiKey(want)
+    this.extractApiBase(want)
+    this.extractApiModel(want)
     this.extractSelectorKey(want)
     this.extractExaKey(want)
     this.extractReasoningEffort(want)
@@ -53,6 +55,8 @@ export default class EntryAbility extends UIAbility {
   onNewWant(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     hilog.info(DOMAIN, 'VERA', 'EntryAbility onNewWant')
     this.extractApiKey(want)
+    this.extractApiBase(want)
+    this.extractApiModel(want)
     this.extractSelectorKey(want)
     this.extractExaKey(want)
     this.extractReasoningEffort(want)
@@ -73,11 +77,14 @@ export default class EntryAbility extends UIAbility {
   }
 
   /**
-   * Accepts the DeepSeek key as a launch parameter, so it never has to be typed
-   * on the phone:
+   * Accepts the cloud API key as a launch parameter, so it never has to be typed
+   * on the phone. `deepseekKey` is the historical name (DeepSeek is the default
+   * provider); `cloudKey` is the provider-neutral alias for when it is not:
    *
    *   hdc shell aa start -a EntryAbility -b com.vera.probe.dyn \
    *     --ps deepseekKey sk-...
+   *   hdc shell aa start -a EntryAbility -b com.vera.probe.dyn \
+   *     --ps cloudKey sk-... --ps apiBase https://api.openai.com/v1 --ps apiModel gpt-4o
    *
    * The key itself is never logged -- only the fact that one arrived.
    */
@@ -85,12 +92,61 @@ export default class EntryAbility extends UIAbility {
     if (want.parameters === null || want.parameters === undefined) { return }
     let params = want.parameters as Record<string, Object>
     let key = params['deepseekKey']
+    if (key === null || key === undefined || typeof key !== 'string') {
+      // Provider-neutral alias; whichever arrives is the same stored key.
+      let alt = params['cloudKey']
+      if (alt !== null && alt !== undefined && typeof alt === 'string') { key = alt }
+    }
     if (key === null || key === undefined || typeof key !== 'string') { return }
     let text = (key as string).trim()
     if (text.length === 0) { return }
     settings.init(this.context.filesDir)
     settings.setApiKey(text)
-    hilog.info(DOMAIN, 'VERA', 'DeepSeek API key updated from launch parameter')
+    hilog.info(DOMAIN, 'VERA', 'Cloud API key updated from launch parameter')
+  }
+
+  /**
+   * The cloud provider's chat-completions base URL, given the same way as the
+   * key. The engine appends /chat/completions itself, so this is the prefix up
+   * to that:
+   *
+   *     --ps apiBase https://api.openai.com/v1
+   *
+   * Omitted, the default is DeepSeek's. Persisted, so a provider switch survives
+   * a restart. When this is not DeepSeek's host, the request builders omit the
+   * DeepSeek-only `thinking` and `reasoning_effort` fields (SettingsStore.isDeepSeek).
+   */
+  private extractApiBase(want: Want): void {
+    if (want.parameters === null || want.parameters === undefined) { return }
+    let params = want.parameters as Record<string, Object>
+    let url = params['apiBase']
+    if (url === null || url === undefined || typeof url !== 'string') { return }
+    let text = (url as string).trim()
+    if (text.length === 0) { return }
+    settings.init(this.context.filesDir)
+    settings.setBaseUrl(text)
+    hilog.info(DOMAIN, 'VERA', 'API base URL updated from launch parameter')
+  }
+
+  /**
+   * The model name sent in the chat-completions `model` field, given the same
+   * way:
+   *
+   *     --ps apiModel gpt-4o
+   *
+   * Omitted, the default is the DeepSeek model. Persisted alongside the base URL
+   * so a provider switch carries its model with it.
+   */
+  private extractApiModel(want: Want): void {
+    if (want.parameters === null || want.parameters === undefined) { return }
+    let params = want.parameters as Record<string, Object>
+    let model = params['apiModel']
+    if (model === null || model === undefined || typeof model !== 'string') { return }
+    let text = (model as string).trim()
+    if (text.length === 0) { return }
+    settings.init(this.context.filesDir)
+    settings.setModel(text)
+    hilog.info(DOMAIN, 'VERA', 'API model updated from launch parameter')
   }
 
   /**

@@ -407,10 +407,10 @@ struct GeneratePage {
       // A stub build cannot load the embedding model, so discovery falls back to
       // keywords; that belongs next to the provider line, which is what stays up.
       let note = modelSupportNote()
-      this.status = 'DeepSeek ready (' + settings.getModel() + ', key ' + settings.maskedKey() + ')' +
+      this.status = settings.providerLabel() + ' ready (' + settings.getModel() + ', key ' + settings.maskedKey() + ')' +
         (note.length > 0 ? '. ' + note : '')
     } else {
-      this.status = 'No API key. Send one with: aa start -a EntryAbility -b com.vera.probe.dyn --ps deepseekKey <key>'
+      this.status = 'No API key. Send one with: aa start -a EntryAbility -b com.vera.probe.dyn --ps deepseekKey <key> (or --ps cloudKey <key>)'
     }
   }
 
@@ -1525,7 +1525,7 @@ struct GeneratePage {
   }
 
   private modeLabel(): string {
-    if (this.mode === MODE_DEEPSEEK) { return 'DeepSeek' }
+    if (this.mode === MODE_DEEPSEEK) { return settings.providerLabel() }
     if (this.mode === MODE_SERVER) { return 'Server' }
     return 'Local'
   }
@@ -1991,7 +1991,7 @@ struct GeneratePage {
                 Text(routeWhy(this.routeInfo)).fontSize(12).fontColor('#555555').width('92%')
 
                 if (this.sideCallsOf('2').length > 0 || this.fastContentMs > 0) {
-                  this.stageHeader('2', 'Model fills in text', 'DeepSeek \u00B7 text only', '#1F9D4C')
+                  this.stageHeader('2', 'Model fills in text', settings.providerLabel() + ' \u00B7 text only', '#1F9D4C')
                   ForEach(this.sideCallsOf('2'), (call: SideCall) => { this.callRow(call) })
                   Row({ space: 8 }) {
                     this.cell('Stage time', this.formatMs(this.sideMs(this.sideCallsOf('2'))), 'text for the blocks')
@@ -2004,7 +2004,7 @@ struct GeneratePage {
               if (this.attempts.length === 0 && !this.fastPathRan) {
                 Text('No run yet').fontSize(13).fontColor('#BBBBBB').width('100%')
               } else if (this.attempts.length > 0) {
-                this.stageHeader(this.routeKnown ? '3' : '1', 'Model writes the program', 'DeepSeek', '#C77700')
+                this.stageHeader(this.routeKnown ? '3' : '1', 'Model writes the program', settings.providerLabel(), '#C77700')
                 ForEach(this.sideCallsOf('3'), (call: SideCall) => { this.callRow(call) })
                 // Two tiles per row: a right-aligned column inside a full-width row kept landing
                 // past the edge, and this needs no special case.

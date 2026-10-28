@@ -166,7 +166,7 @@ struct StatsPanel {
 
   private cacheNote(): string {
     if (this.tally.cached === 0 || this.tally.input === 0) { return 'nothing reused' }
-    return 'reused by DeepSeek, ' + Math.round(this.tally.cached * 100 / this.tally.input).toString() + '%'
+    return 'reused by ' + settings.providerLabel() + ', ' + Math.round(this.tally.cached * 100 / this.tally.input).toString() + '%'
   }
 
   build() {
@@ -459,8 +459,8 @@ struct ChatPage {
 
   onPageShow(): void {
     if (!settings.hasApiKey()) {
-      this.status = 'No DeepSeek API key yet (see CLAUDE.md)'
-    } else if (this.status.startsWith('No DeepSeek')) {
+      this.status = 'No cloud API key yet (see CLAUDE.md)'
+    } else if (this.status.startsWith('No cloud API key') || this.status.startsWith('No DeepSeek')) {
       this.status = ''
     }
   }
@@ -949,7 +949,7 @@ struct ChatPage {
             .onChange((value: string) => {
               this.draft = value
               // The key can arrive while this page is open, and onPageShow does not fire for that.
-              if (this.status.startsWith('No DeepSeek') && settings.hasApiKey()) { this.status = '' }
+              if (this.status.startsWith('No cloud API key') && settings.hasApiKey()) { this.status = '' }
             })
             .onSubmit(() => { this.send() })
             .layoutWeight(1)
