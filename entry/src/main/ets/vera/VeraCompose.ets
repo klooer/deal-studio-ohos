@@ -29,6 +29,8 @@ import { FragmentSpec, StateFieldSpec, PortSpec, VetoSpec, fragments, vetoes } f
 import { composeFragments } from './VeraSectionCompose'
 import { noteService, httpFailure, SERVICE_JEV } from './ServiceHealth'
 import { blockDefaults } from './VeraTemplateContent'
+import { settings } from './SettingsStore'
+import { askJevViaCloud } from './JevProxy'
 import { ScreenPlan, PlanSlot, PlanComponent, StateItem, assemblePlan, FILL_PART, FILL_BLOCK, FILL_EFFECT, FILL_HOLE, FILL_OPEN,
   PLAN_FROM_SKETCH, TO_WRITE } from './ScreenPlan'
 
@@ -3907,6 +3909,11 @@ export class ComposeResult {
 }
 
 export async function askJev(body: string, apiKey: string): Promise<string> {
+  // Route the selector calls through the on-device cloud proxy when it is on,
+  // instead of TypeSafe; otherwise the real TypeSafe endpoint, unchanged.
+  if (settings.useJevProxy()) {
+    return askJevViaCloud(body)
+  }
   let client = http.createHttp()
   try {
     let headers: Record<string, string> = {}

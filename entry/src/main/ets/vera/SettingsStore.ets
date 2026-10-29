@@ -116,6 +116,18 @@ export class SettingsStore {
    * DEFAULT_REASONING_EFFORT. Supplied as `--ps reasoningEffort high` (EntryAbility).
    */
   private reasoningEffort: string = ''
+  /**
+   * Whether the composer's selector calls (askJev/selectEdit) route through the
+   * configured cloud model on-device instead of TypeSafe. There is no default;
+   * supplied like the others -- `--ps jevProxy 1` -- and optional in the way the
+   * selector key is not: without it the selector calls go straight to
+   * api.typesafe.ai as they always did, so the proxy is strictly opt-in and
+   * changes nothing about the TypeSafe path. It is a flag, not a URL: the
+   * translation runs in-process (JevProxy.ets), so the cloud base/model/key come
+   * from the existing apiBase/apiModel/cloudKey settings and there is no endpoint
+   * to point at.
+   */
+  private jevProxy: string = ''
   private loaded: boolean = false
 
   init(filesDir: string): void {
@@ -143,6 +155,7 @@ export class SettingsStore {
         this.selectorKey = (obj['selectorKey'] as string) || ''
         this.exaKey = (obj['exaKey'] as string) || ''
         this.reasoningEffort = (obj['reasoningEffort'] as string) || ''
+        this.jevProxy = (obj['jevProxy'] as string) || ''
       } catch (_e) {}
     }
     this.loaded = true
@@ -158,6 +171,7 @@ export class SettingsStore {
     obj['selectorKey'] = this.selectorKey
     obj['exaKey'] = this.exaKey
     obj['reasoningEffort'] = this.reasoningEffort
+    obj['jevProxy'] = this.jevProxy
     try { writeText(this.path(), JSON.stringify(obj)) } catch (_e) {}
   }
 
@@ -188,6 +202,16 @@ export class SettingsStore {
 
   hasSelectorKey(): boolean { return this.getSelectorKey().length > 0 }
 
+  /**
+   * Whether a selector is available at all: the real TypeSafe key, or the
+   * on-device cloud proxy (which uses the cloud key, not the selector key).
+   * The composer's agent route and its structural-edit path are gated on this:
+   * they need *some* selector to answer their choice/noul questions, and when
+   * the proxy is on that selector is the configured cloud model, so the paths
+   * proceed without a TypeSafe key.
+   */
+  hasSelector(): boolean { return this.hasSelectorKey() || this.useJevProxy() }
+
   getExaKey(): string {
     if (!this.loaded) { this.load() }
     return this.exaKey
@@ -217,6 +241,27 @@ export class SettingsStore {
     this.selectorKey = key.trim()
     this.save()
   }
+
+  getJevProxy(): string {
+    if (!this.loaded) { this.load() }
+    return this.jevProxy
+  }
+
+  hasJevProxy(): boolean { return this.getJevProxy().length > 0 }
+
+  setJevProxy(url: string): void {
+    if (!this.loaded) { this.load() }
+    this.jevProxy = url.trim()
+    this.save()
+  }
+
+  /**
+   * Whether askJev/selectEdit should route through the on-device cloud proxy
+   * (JevProxy.ets) instead of TypeSafe. True when `jevProxy` is set to any
+   * non-empty value (`--ps jevProxy 1`); false otherwise, in which case the
+   * selector calls go to api.typesafe.ai unchanged.
+   */
+  useJevProxy(): boolean { return this.getJevProxy().length > 0 }
 
   setApiKey(key: string): void {
     this.apiKey = key.trim()

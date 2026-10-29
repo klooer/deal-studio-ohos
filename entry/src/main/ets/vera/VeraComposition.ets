@@ -30,6 +30,8 @@ import { fillSectionsContent } from './VeraTemplateContent'
 import { arrangeInLayout, LAYOUT_STACK } from './VeraLayouts'
 import { compileVeraSource, CompileResult } from './VeraCompiler'
 import { smokeRun } from './VeraSmoke'
+import { settings } from './SettingsStore'
+import { askJevViaCloud } from './JevProxy'
 
 const DOMAIN = 0x0000
 const ENDPOINT: string = 'https://api.typesafe.ai/v1/systemone'
@@ -445,7 +447,17 @@ export function readEditAnswer(body: string, c: Composition): CompositionEdit {
 /** Asks Jev. Never throws; any failure is an edit of `none`, which sends the request to the model's refine path. */
 export async function selectEdit(request: string, c: Composition, apiKey: string): Promise<CompositionEdit> {
   let none = new CompositionEdit()
-  if (apiKey.length === 0 || request.trim().length === 0) { none.note = 'edit=none(no key)'; return none }
+  if (request.trim().length === 0) { none.note = 'edit=none(no key)'; return none }
+  // Route through the on-device cloud proxy when it is on; the proxy uses the
+  // cloud key, so the selector-key guard does not apply in that mode.
+  if (settings.useJevProxy()) {
+    let body = await askJevViaCloud(buildEditRequest(request, c))
+    if (body.length === 0) { none.note = 'edit=none(selector unreachable)'; return none }
+    let edit = readEditAnswer(body, c)
+    hilog.info(DOMAIN, 'VERA', 'VERA-EDIT ' + edit.note)
+    return edit
+  }
+  if (apiKey.length === 0) { none.note = 'edit=none(no key)'; return none }
   let client = http.createHttp()
   try {
     let headers: Record<string, string> = {}

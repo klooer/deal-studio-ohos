@@ -78,6 +78,7 @@ export default class EntryAbility extends UIAbility {
     this.extractApiBase(want)
     this.extractApiModel(want)
     this.extractSelectorKey(want)
+    this.extractJevProxy(want)
     this.extractExaKey(want)
     this.extractReasoningEffort(want)
     this.extractServerUrl(want)
@@ -99,6 +100,7 @@ export default class EntryAbility extends UIAbility {
     this.extractApiBase(want)
     this.extractApiModel(want)
     this.extractSelectorKey(want)
+    this.extractJevProxy(want)
     this.extractExaKey(want)
     this.extractReasoningEffort(want)
     this.extractServerUrl(want)
@@ -244,6 +246,26 @@ export default class EntryAbility extends UIAbility {
     settings.init(this.context.filesDir)
     settings.setSelectorKey(text)
     hilog.info(DOMAIN, 'VERA', 'TypeSafe key updated from launch parameter')
+  }
+
+  /**
+   * Whether the composer's selector calls route through the on-device cloud
+   * proxy (JevProxy.ets) instead of TypeSafe, given the same way as the key:
+   *     --ps jevProxy 1
+   * A flag, not a URL: the translation runs in-process, so the cloud
+   * base/model/key come from the existing apiBase/apiModel/cloudKey settings.
+   * Optional: without it the selector calls go to TypeSafe directly.
+   */
+  private extractJevProxy(want: Want): void {
+    if (want.parameters === null || want.parameters === undefined) { return }
+    let params = want.parameters as Record<string, Object>
+    let url = params['jevProxy']
+    if (url === null || url === undefined || typeof url !== 'string') { return }
+    let text = (url as string).trim()
+    if (text.length === 0) { return }
+    settings.init(this.context.filesDir)
+    settings.setJevProxy(text)
+    hilog.info(DOMAIN, 'VERA', 'Jev proxy flag updated from launch parameter')
   }
 
   /**

@@ -637,7 +637,7 @@ function progressStatus(doing: string, p: GenerateProgress): string {
  * results, compose off or no Jev key.
  */
 export function chatAgentSource(context: WidgetBuildContext): string {
-  if (context.source.length > 0 || context.verifiedSearchResults.length > 0 || !composeEnabled() || !settings.hasSelectorKey()) { return '' }
+  if (context.source.length > 0 || context.verifiedSearchResults.length > 0 || !composeEnabled() || !settings.hasSelector()) { return '' }
   if (context.request.trim().length > 0) { return 'request' }
   if (context.brief.trim().length > 0) { return 'description' }
   return context.currentRequest.trim().length > 0 ? 'message' : ''

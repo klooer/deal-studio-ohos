@@ -124,6 +124,14 @@ The same goes for `vera-server`, if the Server generation mode is wanted:
 `--ps veraServer http://host:port`. Neither has a default, and neither belongs
 in the source.
 
+The Jev selector can be routed through the configured cloud model on-device
+instead of TypeSafe System One: `--ps jevProxy 1`. This is a flag, not a URL
+(the translation runs in-process in `vera/JevProxy.ets`), and it uses the
+stored `cloudKey`/`apiBase`/`apiModel`, so no selector key is needed when it
+is on. There is a toggle for it on the Generate screen next to the model
+picker. Without it the selector calls go to `api.typesafe.ai` as before, which
+needs `--ps typesafeKey`.
+
 **Prompts typed into the Generate screen are written in English**, even when the
 conversation is not.
 
