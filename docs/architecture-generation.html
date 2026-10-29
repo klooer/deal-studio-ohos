@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Generation architecture and workflow — deal-studio-ohos</title>
+<style>
+  :root {
+    --ink: #1b1f24;
+    --muted: #57606a;
+    --line: #d0d7de;
+    --bg: #ffffff;
+    --code-bg: #f6f8fa;
+    --code-ink: #24292f;
+    --accent: #0969da;
+    --thead-bg: #f6f8fa;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #e6edf3;
+      --muted: #9198a1;
+      --line: #30363d;
+      --bg: #0d1117;
+      --code-bg: #161b22;
+      --code-ink: #e6edf3;
+      --accent: #58a6ff;
+      --thead-bg: #161b22;
+    }
+  }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  article {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 40px 28px 80px;
+  }
+  header.title { margin-bottom: 8px; }
+  header.title h1 {
+    margin: 0 0 6px;
+    font-size: 1.9em;
+    line-height: 1.25;
+  }
+  header.title p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.95em;
+  }
+  nav.toc {
+    margin: 28px 0 36px;
+    padding: 16px 20px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--code-bg);
+  }
+  nav.toc h2 { margin: 0 0 8px; font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+  nav.toc ol { margin: 0; padding-left: 20px; }
+  nav.toc li { margin: 3px 0; }
+  nav.toc a { color: var(--accent); text-decoration: none; }
+  nav.toc a:hover { text-decoration: underline; }
+  h2 {
+    margin: 40px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--line);
+    font-size: 1.4em;
+  }
+  h3 { margin: 26px 0 8px; font-size: 1.12em; }
+  p { margin: 10px 0; }
+  ul, ol { padding-left: 26px; margin: 10px 0; }
+  li { margin: 4px 0; }
+  code {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 0.88em;
+    background: var(--code-bg);
+    color: var(--code-ink);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+  pre {
+    background: var(--code-bg);
+    color: var(--code-ink);
+    padding: 14px 16px;
+    border-radius: 8px;
+    overflow-x: auto;
+    border: 1px solid var(--line);
+  }
+  pre code { background: none; padding: 0; font-size: 0.85em; line-height: 1.5; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 14px 0;
+    font-size: 0.93em;
+  }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 7px 11px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--thead-bg); font-weight: 600; }
+  tr:nth-child(even) td { background: var(--code-bg); }
+  blockquote {
+    margin: 12px 0;
+    padding: 6px 16px;
+    border-left: 3px solid var(--accent);
+    color: var(--muted);
+  }
+  strong { color: var(--ink); }
+  a { color: var(--accent); }
+  hr { border: none; border-top: 1px solid var(--line); margin: 32px 0; }
+  .tag {
+    display: inline-block;
+    font-size: 0.72em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 1px 6px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+</style>
+</head>
+<body>
+<article>
+
+<header class="title">
+  <h1>Architecture and generation workflow</h1>
+  <p>How a plain-English prompt becomes a running native ArkUI screen on the phone, with and without Jev. Companion to <code>docs/agent.md</code>.</p>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#layering">Layering</a></li>
+    <li><a href="#catalogue">The catalogue: sections and parts</a></li>
+    <li><a href="#jev">Jev</a></li>
+    <li><a href="#plan">The plan of needs</a></li>
+    <li><a href="#paths">The two paths</a></li>
+    <li><a href="#degradation">Graceful degradation — without Jev</a></li>
+    <li><a href="#switches">Switches and launch parameters</a></li>
+    <li><a href="#observability">Observability</a></li>
+    <li><a href="#files">File map</a></li>
+    <li><a href="#ideas">Key ideas</a></li>
+  </ol>
+</nav>
+
+<h2 id="layering">1. Layering</h2>
+
+<pre><code>prompt ──► agent route ──► Vera source ──► compiler ──► VM ──► ArkUI (VeraPreview)
+              (VeraBuildRoute)    (.vera)   (VeraCompiler)        (renderer)</code></pre>
+
+<table>
+<thead><tr><th>layer</th><th>what it is</th><th>where</th></tr></thead>
+<tbody>
+<tr><td><strong>Vera</strong></td><td>the DSL the route emits and the model writes — <code>ui.*</code> catalogue calls, <code>state</code>, handlers, <code>intent.call</code>, <code>sdk.call</code></td><td><code>docs/examples/shanghai-layover.vera</code></td></tr>
+<tr><td><strong>VeraCompiler</strong></td><td>parses Vera with recovery, type-checks, emits the VM's program; <code>compileVeraSource</code> <strong>throws</strong> <code>CompileError</code> carrying <code>.diagnostics</code> (it does not return them)</td><td><code>vera/VeraCompiler.ets</code></td></tr>
+<tr><td><strong>VM</strong></td><td>runs the compiled program; intent-style targets get real dispatch</td><td><code>vera/VeraCompiler.ets</code> (runtime), <code>vera/VeraVm.ets</code></td></tr>
+<tr><td><strong>VeraPreview</strong></td><td>renders the running program as native ArkUI; keeps its own hardcoded list of node kinds and <strong>complains on startup if it drifts from the catalogue</strong></td><td><code>components/VeraPreview.ets</code></td></tr>
+<tr><td><strong>ArkTS</strong></td><td>the host language the app itself is written in — compiler, VM, renderer, catalogue. The model and the composer never write ArkTS; they write Vera</td><td>—</td></tr>
+</tbody>
+</table>
+
+<p>The catalogue is <strong>one pure-data description</strong> (<code>vera/VeraUiCatalog.ets</code>). The compiler interface, the validator and the model's prompt are all generated from it, so they cannot drift from each other; only the renderer keeps a second list, and it asserts parity at startup. Adding a component means editing the catalogue, adding a case in <code>VeraUi.ets</code>, and adding a branch in <code>VeraPreview.ets</code> — the compiler, validator and prompt follow from the catalogue on their own.</p>
+
+<h2 id="catalogue">2. The catalogue: sections and parts</h2>
+
+<p>A screen is assembled from <strong>blocks</strong>, all in one format, <code>FragmentSpec</code> (<code>vera/VeraTemplates.ets</code>): state fields, handlers, a view scaffold (<code>sections.push(ui.Section(...))</code>), and tokens for content, ports and holes. There are two kinds of block:</p>
+
+<ul>
+<li><strong>Sections</strong> — pre-built templates the catalogue owns. There are <strong>29</strong> registered in <code>fragments()</code> (<code>VeraTemplates.ets:2422</code>): checklist, record_log, master_list, search_list, detail_view, list_summary, filter_box, bar_chart, series_chart, trend_chart, number_strip, breakdown_table, data_table, metrics, timer, timeline, itinerary, progress_goal, progress_line, key_facts, live_facts, spotlight, note, rating, actions, intent_panel, calendar_event, reminders, settle_up. Jev picks among a subset for the needs a section can do whole: <code>READY_KINDS</code> (10) for ready needs, <code>LIST_SECTIONS</code> (<code>record_log, reminders</code>) for the list, and <code>timer</code> for a countdown.</li>
+<li><strong>Parts</strong> — the composer's own blocks (clock, list, inputs/widgets, computed values/formulas, effects). These are <strong>code-assembled</strong> by <code>part(kind, fields, functions, view)</code> from Jev's per-attribute choices, not picked from templates. <code>compositionParts(comp)</code> gathers them.</li>
+</ul>
+
+<p>The composer stitches sections + parts into one program with <code>assembleProgram(comp)</code> (<code>vera/VeraCompose.ets:3763</code>), which emits the Vera source. <strong>On the fast path the composer writes the code; the model writes no whole-program Vera.</strong> The model only fills section text/content (and small <em>catalogue holes</em> — a function body inside a section) and writes the holes described in §5.</p>
+
+<h3 id="part">2.1 How a part is built</h3>
+
+<p>Parts are code-assembled, not template-picked. <code>part()</code> (<code>VeraCompose.ets:2895</code>) is a small factory that packages four arrays into a <code>FragmentSpec</code>:</p>
+
+<pre><code>function part(kind: string, fields: Field[], functions: string[], view: string[],
+             supportClass: string = '', initStatements: string = ''): FragmentSpec {
+  // fields → state fields + init values; functions → handler bodies; view → view lines
+  let state: StateFieldSpec[] = []
+  let inits: string[] = []
+  for (let f of fields) { state.push(new StateFieldSpec(f.name, f.type)); inits.push(f.name + ': ' + f.init) }
+  let spec = new FragmentSpec(kind, '', supportClass, state, initStatements,
+                              inits.join(', '), functions.join('\n\n'), view.join('\n'), [], [])
+  spec.indexed = false   // a part, not a catalogue section
+  return spec
+}</code></pre>
+
+<p>The four inputs map onto the four things a <code>FragmentSpec</code> carries: <code>fields</code> → state, <code>functions</code> → handlers, <code>view</code> → view lines, <code>kind</code> → the part's name. Nothing is filled into a template — the arrays are built in code from the sketch and Jev's answers.</p>
+
+<p>A family of builders turns a slice of the <code>Composition</code> into one part each:</p>
+
+<ul>
+<li><code>figuresPart</code> (<code>:3110</code>) — the <code>let</code>-locals every other part draws from (each input, the clock's time, the list's count/total, each value's formula), and port functions so a catalogue section can read a value through a port.</li>
+<li><code>inputsPart</code> (<code>:3170</code>) — one control and one setter per input; <strong>the widget Jev chose</strong> (<code>comp.widgets.get(input.id)</code>) picks the <code>ui.*</code> call (<code>ui.Select</code>, <code>ui.Slider</code>, <code>ui.Toggle</code>, <code>ui.TextField</code>, …).</li>
+<li><code>clockPart</code> (<code>:3065</code>), <code>listPart</code> (<code>:3239</code>), <code>effectsPart</code> (<code>:3485</code>) — the clock's ticker and start/stop/reset, the list's <code>LogEntry</code> class and add/remove handlers, and the screen buttons + phone-answer banner.</li>
+<li><code>heroPart</code> (<code>:3145</code>), <code>summaryPart</code> (<code>:3227</code>) — layout only, no state or handlers (<code>part('hero', [], [], view)</code>).</li>
+<li><code>widgetPart</code> (<code>:3489</code>) — the two-section shell for a chat widget.</li>
+</ul>
+
+<p><code>compositionParts(comp)</code> (<code>:3495</code>) gathers them in screen order, then does one deliberate thing: it <strong>empties every part's <code>viewBlock</code> and stitches the lines into one trailing <code>screen</code> part</strong>:</p>
+
+<pre><code>let view: string[] = ['{']
+for (let p of parts) {
+  for (let line of p.viewBlock.split('\n')) { if (line.length > 0) { view.push('  ' + line) } }
+  p.viewBlock = ''
+}
+view.push('}')
+parts.push(part('screen', [], [], view))</code></pre>
+
+<p>The <code>figures</code> part emits locals (<code>let duration = …; let tip = …;</code>) that the hero, summary and list parts' view lines reference, so they must share one scope. Folding all view lines into a single <code>{ … }</code> block keeps those locals in scope and out of the way of any catalogue section on the same screen.</p>
+
+<p><code>assembleProgram(comp)</code> (<code>:3763</code>) then turns the parts + the catalogue sections Jev picked (<code>comp.blocks</code>) into Vera source:</p>
+
+<pre><code>export function assembleProgram(comp: Composition, blockValues: Map&lt;string, string&gt;[] = [],
+                               custom: FragmentSpec | null = null): string {
+  if (comp.unbound.length > 0) { return '' }   // open slot → no program
+  return assemblePlan(screenPlan(comp, blockValues, custom), true)
+}</code></pre>
+
+<p>The guard is the "a plan with an open slot is not served" rule: any unbound value aborts assembly. <code>screenPlan</code> interleaves parts with sections; <code>assemblePlan</code> emits the state block, handlers and the merged view.</p>
+
+<p>So on the fast path the composer writes the code — Jev only decided which widget, formula, effect and moment goes in each slot; the builders assemble the strings field by field, handler by handler, <code>ui.*</code> call by <code>ui.*</code> call.</p>
+
+<h2 id="jev">3. Jev</h2>
+
+<p>Jev is TypeSafe's System One model (<code>jev-latest</code>, <code>https://api.typesafe.ai/v1/systemone</code>), called with a Bearer key — the <strong>TypeSafe key</strong>, supplied as the <code>--ps typesafeKey ...</code> launch parameter and persisted in <code>{filesDir}/vera/settings.json</code> as <code>selectorKey</code> (<code>vera/SettingsStore.ets</code>, <code>EntryAbility.extractSelectorKey</code>).</p>
+
+<p>Every live Jev call goes through one of two entry points: <strong><code>askJev</code></strong> (<code>vera/VeraCompose.ets:3909</code>), wired as <code>host.askJev</code> in <code>agent/AgentAppHost.ets:21</code>; and <strong><code>selectEdit</code></strong> (<code>vera/VeraComposition.ets:446</code>), used only on the refine path. Jev is used for, all in the shape <em>one question per item, answered with a probability/confidence</em>:</p>
+
+<ol>
+<li><strong>Composition choices</strong> — the two Jev calls in <code>composeNeeds</code> (<code>vera/NeedsChoose.ets</code>): a <strong>section-or-part</strong> call (<code>buildChooseRequest</code>) that puts a section and a part side by side for every need both can do (the countdown → <code>timer</code> section or clock part; the list → a <code>LIST_SECTIONS</code> section or list part; each ready need → a <code>READY_KINDS</code> section, or the person's own records), then a <strong>per-attribute</strong> call (<code>buildComposeRequest</code> in <code>VeraCompose.ets</code>) for what is left — a widget for each input, a formula for each value, an effect and a moment for each event, the theme, and whether a section needs real data.</li>
+<li><strong>Questions</strong> (<code>agent/AgentQuestions.ets</code>, <code>askBlocking</code>) — settles the sketch's questions, keeping only those a default cannot stand in for.</li>
+<li><strong>Leftover alignment</strong> (<code>agent/AgentAlign.ets</code>, <code>alignLeftovers</code>) — aligns what the agent's sections leave open with the catalogue first, so a detail a section already does is not written again.</li>
+<li><strong>Slot values</strong> (<code>buildSlotRequest</code> in <code>VeraSectionCompose.ets</code>, via <code>host.askJev</code> at <code>VeraAgent.ets:196</code>) — reads the values for the blocks' slots.</li>
+<li><strong>Verification</strong> (<code>agent/AgentClaims.ets</code>, <code>agent/AgentHole.ets</code>) — Jev reads the model-written code against each need: which claimed needs the program does not yet do (<code>claimsUndone</code>), which open slots the screen already covers (<code>claimsDone</code>), and the hole's own verify.</li>
+<li><strong>Refine</strong> (<code>vera/VeraComposition.ets</code>, <code>selectEdit</code>) — when an existing composition is edited rather than rebuilt from scratch.</li>
+</ol>
+
+<p><strong>Jev never writes text or code.</strong> It picks among ready-made options the catalogue or the composer owns. This is the design rule borrowed from json-render's Jev composer, generalised here to programs with logic: Jev answers independent questions, the composer assembles the result in code, and nothing computes until the program runs.</p>
+
+<p><strong>Jev is not used for intent or SDK function finding.</strong> Which phone intents and SDK functions a request needs is found by <strong>embeddings</strong>, not Jev: <code>findIntentFunction</code> (keyword and embedding rankings together) and <code>findSdkFunction</code> (embedding, then keyword cache) run per phone slot in the hole path (<code>vera/VeraIntentIndex.ets</code>, <code>vera/VeraSdkIndex.ets</code>, and the <code>*EmbeddingCache</code> modules). The UI catalogue itself is narrowed for the prompt by <code>selectUiForPrompt</code> (embeddings), not Jev. The older Jev intent pre-selection (<code>vera/JevSelector.ets</code>'s <code>selectDomains</code>/<code>selectTargets</code>) and the blocks section pick (<code>vera/VeraSectionCompose.ets</code>'s <code>selectSections</code>) were orphaned by the blocks-pipeline removal and have <strong>no callers</strong> in the current tree — they remain in the source but are not on the live path.</p>
+
+<h2 id="plan">4. The plan of needs</h2>
+
+<p>Both paths produce a <strong><code>ScreenPlan</code></strong> (<code>vera/ScreenPlan.ets</code>): the screen's <em>state</em> (named values), its <em>slots</em> (each thing it does, with what it reads and writes, and whether it is a phone action), and the <em>components</em> that fill them. A component's fill is one of <code>FILL_OPEN</code>, <code>FILL_PART</code>, <code>FILL_BLOCK</code>, <code>FILL_EFFECT</code>, <code>FILL_HOLE</code>, <code>FILL_REPORTED</code>. A slot is <em>open</em> until something fills it; <strong>a plan with an open slot is not served.</strong></p>
+
+<p>The plan starts as a <strong>sketch</strong> — JSON the generating model writes with thinking off: inputs, constants, values with formulas, a countdown or stopwatch, a list, events (what the phone does, and when), ready needs, other items, and at most two questions. The model is prompted with <code>NEEDS_PROMPT</code> (<code>vera/NeedsPlan.ets:64</code>) and the reply is parsed by <code>parseSketch</code> (<code>vera/VeraCompose.ets:225</code>). The sketch is model work, not Jev. It is asked for until there is one: the first try, then once more with what was wrong quoted, then once with thinking on.</p>
+
+<p>The sketch is the pivot between the paths: it is drawn in both, and it is what the slow path writes against when the fast path cannot assemble a program.</p>
+
+<h2 id="paths">5. The two paths</h2>
+
+<p>The route (<code>agent/VeraBuildRoute.ets</code>, <code>buildScreen</code>) is the single entry for a new screen — the Generate screen and the chat both go through it. It decides which builder serves and never generates from scratch itself; neither does the caller.</p>
+
+<h3 id="fast">5.1 The fast path — with Jev</h3>
+
+<p><code>runAgent</code> (<code>agent/VeraAgent.ets</code>) → <code>composeNeeds</code> (<code>vera/NeedsChoose.ets</code>):</p>
+
+<ol>
+<li><strong>Plan.</strong> The model writes the sketch (thinking off, retried as above).</li>
+<li><strong>Questions.</strong> The sketch's questions are shown to the person on a card; a non-default answer replans.</li>
+<li><strong>Jev call #1 — section or part.</strong> One Jev call over the sketch. What a section cannot stand in for is removed from the options <em>before</em> asking, from the plan's own facts, so a choice is never taken back. A choice Jev does not give leaves the part.</li>
+<li><strong>Jev call #2 — per-attribute.</strong> One Jev call for the widgets, formulas, effects and moments, not re-asking what call #1 settled. Asked twice if it does not answer.</li>
+<li><strong>Assemble.</strong> <code>readComposition</code> → <code>Composition</code> → <code>assembleProgram</code> emits the Vera source from the chosen sections + parts.</li>
+<li><strong>Fill.</strong> The sections' text/content is written (from a web search when it must be real) and their small catalogue holes filled (<code>vera/SectionFill.ets</code>, <code>SectionFillApp.ets</code>).</li>
+<li><strong>Check.</strong> The assembled program is compiled and run once with every handler tapped; failures are quoted back for a repair with SEARCH/REPLACE edits, at most twice (<code>agent/AgentRepair.ets</code>, <code>settleProgram</code>).</li>
+</ol>
+
+<p>If the composer yields a program, <code>result.vbc2</code> is non-empty and the route returns <code>OUTCOME_AGENT</code>. <strong>No model-written whole-program code on this path</strong> — the composer emits it; the model only filled text and small holes.</p>
+
+<h3 id="slow">5.2 The slow path — without Jev, or when the fast path cannot serve</h3>
+
+<p>When the composer produces no program (Jev did not answer, or the sketch left slots nothing ready fills), the route falls through to <code>writeWholeScreen</code> (<code>VeraBuildRoute.ets:59</code>):</p>
+
+<ol>
+<li>The <strong>model writes the whole screen as one hole</strong> — Vera source, against the sketch the plan already drew (or the bare request if there is no sketch). <code>writeHole</code> (<code>agent/AgentHole.ets</code>) is the writer; it writes against the Vera skill the Generate page loaded (<code>rawfile/vera-skill.txt</code> with <code>{{UI_CATALOG}}</code> spliced in) and passed into the host as <code>host.language</code> — <code>AgentHole</code> gates on <code>host.language.length === 0</code> (no skill, no hole).</li>
+<li>For each <strong>phone slot</strong>, the app's own lookups run first — <code>findIntentFunction</code> (keyword and embedding rankings together) and <code>findSdkFunction</code> (embedding, then keyword cache) — and the section may call only targets they returned. Every <code>sdk.call</code> target is checked before serving.</li>
+<li>The written section is compiled and run once with every handler tapped; failures are quoted back for a repair, at most twice; one more try with thinking on after the quick tries.</li>
+<li><strong>Jev reads it</strong> against each need (<code>claimsUndone</code>/<code>claimsDone</code>); a need read as not done is asked for again. Still failing, the best try that works and does part of it is served with a notice for what it misses; none, a notice in its place; <code>&lt;cannot&gt;</code> (nothing on this phone does it) is reported as the writer says and not retried.</li>
+</ol>
+
+<p>If the whole-screen hole serves, the route returns <code>OUTCOME_AGENT</code> (the screen is built, just by the model alone). If it too fails, the route returns <code>OUTCOME_NOT_BUILT</code> with the reason — the route never generates from scratch, and neither does the caller; the chat and the Generate screen both show the reason.</p>
+
+<p>The slow path requires <code>request.mode === 'deepseek'</code> (cloud) and the whole-screen hole enabled (default). In <code>MODE_LOCAL</code> (on-device Qwen) or <code>MODE_SERVER</code> there is no whole-screen fallback, so without Jev those modes return <code>OUTCOME_NOT_BUILT</code>.</p>
+
+<h2 id="degradation">6. Graceful degradation — what happens without Jev</h2>
+
+<p><strong>A selector that cannot answer must not stop a generation.</strong> This is the rule every Jev call site obeys, and it is what makes the no-Jev case a slow path rather than a failure.</p>
+
+<table>
+<thead><tr><th>Jev role</th><th>no key / unreachable</th><th>effect on the pipeline</th></tr></thead>
+<tbody>
+<tr><td>composition choices (<code>NeedsChoose</code>, <code>VeraCompose</code>)</td><td><code>askJev</code> returns <code>''</code> (401 on empty bearer, or caught exception); retried once; <code>composeFromSketch</code> returns <code>'Jev did not answer twice'</code> with no composition</td><td>composer yields nothing → route falls to <code>writeWholeScreen</code></td></tr>
+<tr><td>questions / align / slot-values (<code>AgentQuestions</code>, <code>AgentAlign</code>, <code>VeraSectionCompose</code>)</td><td>empty answer → defaults kept, no alignment applied, no slot values read</td><td>proceeds; the plan's own defaults stand</td></tr>
+<tr><td>verification (<code>AgentClaims</code>, <code>AgentHole</code>)</td><td>empty answer → <code>claimsUndone</code>/<code>claimsDone</code> return <code>[]</code> (documented: "[] when Jev did not answer")</td><td>"no unmet claims, nothing to fix" — the written screen is served as-is</td></tr>
+<tr><td>refine (<code>VeraComposition.selectEdit</code>)</td><td>empty answer → the edit is not applied</td><td>the existing composition stands</td></tr>
+</tbody>
+</table>
+
+<p><code>askJev</code> (<code>vera/VeraCompose.ets:3909</code>) never throws: non-200 or exception → <code>noteService(SERVICE_JEV, false, ...)</code> and <code>return ''</code>. The live callers all tolerate the empty string as above. (<code>selectDomains</code>/<code>selectTargets</code> in <code>JevSelector.ets</code> and <code>selectSections</code> in <code>VeraSectionCompose.ets</code> also fail wide, but they have no callers — see §3.)</p>
+
+<p>Net effect: <strong>without Jev, screens are still built</strong> — via the model-written whole-screen hole (the slow path, ~30 s+, the pre-Jev generation cost). With Jev, the fast path assembles from picked sections/parts in ~2-7 s median (<code>docs/agent.md</code> results: 2.0 s for composer-parts-only, up to 6.7 s with a written section). The 23-commit <code>dev/main</code> merge made Jev more central to the <em>fast</em> path (the needs-plan section/part choices) but did <strong>not</strong> add a new Jev dependency to the <em>slow</em> path: the whole-screen hole's Jev-verify predates the merge and already tolerated absence.</p>
+
+<p>Intent and SDK function finding does not depend on Jev at all: it is embedding-based (<code>findIntentFunction</code>, <code>findSdkFunction</code>), with a keyword fallback when the embedding model is absent (a stub build without <code>llama.cpp</code>). So even on a stub build, phone functions are still found — just ranked by keyword match rather than by meaning.</p>
+
+<h2 id="switches">7. Switches and launch parameters</h2>
+
+<p>All launch parameters are persisted (<code>{filesDir}/vera/settings.json</code>) and survive restarts; none is compiled in.</p>
+
+<table>
+<thead><tr><th>parameter</th><th>effect</th></tr></thead>
+<tbody>
+<tr><td><code>--ps cloudKey sk-...</code></td><td>the cloud model's API key (provider-neutral alias; <code>deepseekKey</code> is the historical name)</td></tr>
+<tr><td><code>--ps apiBase URL</code></td><td>the chat-completions base URL; the engine appends <code>/chat/completions</code></td></tr>
+<tr><td><code>--ps apiModel NAME</code></td><td>the model name sent in the request</td></tr>
+<tr><td><code>--ps typesafeKey KEY</code></td><td><strong>enables Jev.</strong> Without it, every Jev call falls back per §6</td></tr>
+<tr><td><code>--ps reasoningEffort low|high|max</code></td><td>how hard the model reasons before a generation</td></tr>
+<tr><td><code>--ps exaKey KEY</code></td><td>the chat's web-search key (optional; without it, no search tool)</td></tr>
+<tr><td><code>--ps veraServer URL</code></td><td>the vera-server address, for Server generation mode</td></tr>
+<tr><td><code>--ps veraTemplateSelect 0</code></td><td>disable the Jev template path for the session (to compare against plain generation)</td></tr>
+<tr><td><code>--ps veraOrder blocks-first</code></td><td>run the blocks before the agent</td></tr>
+<tr><td><code>--ps veraCustom 0</code></td><td>turn off written (model) sections</td></tr>
+<tr><td><code>--ps veraWhole 0</code></td><td>turn off the whole-screen hole — <strong>do not combine with no Jev</strong>, or nothing serves</td></tr>
+</tbody>
+</table>
+
+<p><code>apiBase</code>/<code>apiModel</code> point at any OpenAI-compatible chat-completions endpoint; DeepSeek-native fields (<code>thinking</code>, <code>reasoning_effort</code>) are sent only when <code>settings.isDeepSeek()</code> is true (the base URL is DeepSeek's, or the model name contains <code>deepseek</code>), so pointing <code>apiBase</code> elsewhere switches the dialect off by itself. Jev always calls <code>api.typesafe.ai</code> regardless of the cloud provider.</p>
+
+<h2 id="observability">8. Observability</h2>
+
+<ul>
+<li><strong>Stages</strong> (<code>vera/RunStages.ets</code>): each step is tagged with who did it — <code>WHO_MODEL</code>, <code>WHO_PHONE</code>, <code>WHO_JEV</code> — and its wall time. The Generate screen's metrics tab renders these through <code>attemptsPanel()</code>, <code>tokensPanel()</code>, <code>toolsPanel()</code>, <code>servicesPanel()</code> (<code>pages/GeneratePage.ets</code>).</li>
+<li><strong>Service health</strong> (<code>vera/ServiceHealth.ets</code>): <code>noteService(SERVICE_DEEPSEEK, ok, ...)</code>, <code>noteService(SERVICE_JEV, ok, ...)</code> ping per call; the services panel shows reachability.</li>
+<li><strong>Tool log</strong> (<code>vera/ToolLog.ets</code>): <code>toolCount</code>/<code>toolSpanSince</code> attribute phone lookup time inside a model stage.</li>
+<li><strong>Trace</strong>: every written hole is recorded — a <code>hole</code> event in the app's trace, <code>holes.jsonl</code> beside each host run; <code>tools/vera-harness/hole-report.py</code> groups the needs that recur (the blocks the catalogue lacks).</li>
+</ul>
+
+<h2 id="files">9. File map</h2>
+
+<table>
+<thead><tr><th>file</th><th>what it is</th></tr></thead>
+<tbody>
+<tr><td><code>vera/VeraUiCatalog.ets</code></td><td>the one pure-data description of <code>std/ui</code>; compiler, validator and prompt generated from it</td></tr>
+<tr><td><code>vera/VeraTemplates.ets</code></td><td>the 29 <code>FragmentSpec</code> section templates, registered in <code>fragments()</code></td></tr>
+<tr><td><code>vera/VeraCompose.ets</code></td><td>the composer: the sketch, Jev's per-attribute choices, <code>assembleProgram</code>, <code>askJev</code></td></tr>
+<tr><td><code>vera/NeedsPlan.ets</code></td><td>the plan-of-needs prompt and parser</td></tr>
+<tr><td><code>vera/NeedsChoose.ets</code></td><td>the section-or-part Jev call and <code>composeNeeds</code> (the fast-path orchestrator)</td></tr>
+<tr><td><code>vera/ScreenPlan.ets</code></td><td>the one plan format both paths produce (state, slots, components)</td></tr>
+<tr><td><code>vera/JevSelector.ets</code></td><td>intent pre-selection (domain + intent passes) — <strong>orphaned by the blocks-pipeline removal, no callers</strong>; kept in source</td></tr>
+<tr><td><code>vera/VeraIntentIndex.ets</code> / <code>VeraSdkIndex.ets</code></td><td>live intent/SDK function finding (keyword), with the <code>*EmbeddingCache</code> modules for the embedding rankings</td></tr>
+<tr><td><code>vera/VeraCompiler.ets</code></td><td>parses and compiles Vera; <code>compileVeraSource</code> throws <code>CompileError</code></td></tr>
+<tr><td><code>components/VeraPreview.ets</code></td><td>renders the running program as ArkUI; drift-checks against the catalogue</td></tr>
+<tr><td><code>agent/VeraBuildRoute.ets</code></td><td>the route: <code>runAgent</code> → <code>writeWholeScreen</code> → <code>OUTCOME_NOT_BUILT</code></td></tr>
+<tr><td><code>agent/VeraAgent.ets</code></td><td>runs the agent: plan, choices, align leftovers, claims</td></tr>
+<tr><td><code>agent/AgentHole.ets</code></td><td><code>writeHole</code> — the model-written section / whole-screen hole, with lookups and verify</td></tr>
+<tr><td><code>agent/AgentRepair.ets</code></td><td><code>settleProgram</code> — compile, run, repair by edits</td></tr>
+<tr><td><code>agent/AgentClaims.ets</code></td><td><code>claimsUndone</code>/<code>claimsDone</code> — Jev verification of written code</td></tr>
+<tr><td><code>agent/AgentQuestions.ets</code></td><td><code>askBlocking</code> — settles the sketch's questions via Jev</td></tr>
+<tr><td><code>agent/AgentAlign.ets</code></td><td><code>alignLeftovers</code> — aligns open slots with the catalogue via Jev</td></tr>
+<tr><td><code>vera/SettingsStore.ets</code></td><td>device-local settings (keys, model, base URL, selectorKey); <code>isDeepSeek</code>, <code>providerLabel</code></td></tr>
+<tr><td><code>entryability/EntryAbility.ets</code></td><td>reads the launch parameters into <code>SettingsStore</code> and the feature flags</td></tr>
+</tbody>
+</table>
+
+<h2 id="ideas">10. Key ideas, in one line each</h2>
+
+<ul>
+<li><strong>Jev picks, the composer assembles, the model writes only holes.</strong> Jev never writes text or code; it answers independent questions over ready-made options.</li>
+<li><strong>One block format</strong> (<code>FragmentSpec</code>) for both catalogue sections and composer parts, so the assembler treats them the same.</li>
+<li><strong>The catalogue is pure data.</strong> Compiler, validator and prompt are generated from it; only the renderer keeps a second list, and it drift-checks at startup.</li>
+<li><strong>Planning and building each have a fast path and a slow path.</strong> Jev picks something ready (fast); the model writes what nothing ready does (slow), down to the whole screen as one hole.</li>
+<li><strong>The sketch is the pivot.</strong> Model-written in both paths, it is what the slow path writes against when the fast path cannot assemble.</li>
+<li><strong>A selector that cannot answer must not stop a generation.</strong> Every Jev call site falls back — to the whole catalogue, to the parts, to <code>[]</code> — so no-Jev is a slow path, not a failure.</li>
+<li><strong>Intent finding is embedding-based, not Jev.</strong> <code>findIntentFunction</code>/<code>findSdkFunction</code> rank phone functions by meaning (keyword fallback on a stub build), so a phone need is found without Jev — Jev's job is picking among ready-made options, not finding phone functions.</li>
+<li><strong>The route never generates from scratch, and neither does the caller.</strong> The whole-screen hole is the last model-written resort; past it, <code>OUTCOME_NOT_BUILT</code> with the reason.</li>
+<li><strong>A plan with an open slot is not served.</strong> Everything the plan says the screen does must be filled — by a section, a part, a written hole, or a notice.</li>
+</ul>
+
+</article>
+</body>
+</html>

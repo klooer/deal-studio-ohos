@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>生成架构与工作流 — deal-studio-ohos</title>
+<style>
+  :root {
+    --ink: #1b1f24;
+    --muted: #57606a;
+    --line: #d0d7de;
+    --bg: #ffffff;
+    --code-bg: #f6f8fa;
+    --code-ink: #24292f;
+    --accent: #0969da;
+    --thead-bg: #f6f8fa;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #e6edf3;
+      --muted: #9198a1;
+      --line: #30363d;
+      --bg: #0d1117;
+      --code-bg: #161b22;
+      --code-ink: #e6edf3;
+      --accent: #58a6ff;
+      --thead-bg: #161b22;
+    }
+  }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.7 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  article {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 40px 28px 80px;
+  }
+  header.title { margin-bottom: 8px; }
+  header.title h1 {
+    margin: 0 0 6px;
+    font-size: 1.9em;
+    line-height: 1.25;
+  }
+  header.title p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.95em;
+  }
+  nav.toc {
+    margin: 28px 0 36px;
+    padding: 16px 20px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--code-bg);
+  }
+  nav.toc h2 { margin: 0 0 8px; font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+  nav.toc ol { margin: 0; padding-left: 20px; }
+  nav.toc li { margin: 3px 0; }
+  nav.toc a { color: var(--accent); text-decoration: none; }
+  nav.toc a:hover { text-decoration: underline; }
+  h2 {
+    margin: 40px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--line);
+    font-size: 1.4em;
+  }
+  h3 { margin: 26px 0 8px; font-size: 1.12em; }
+  p { margin: 10px 0; }
+  ul, ol { padding-left: 26px; margin: 10px 0; }
+  li { margin: 4px 0; }
+  code {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 0.88em;
+    background: var(--code-bg);
+    color: var(--code-ink);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+  pre {
+    background: var(--code-bg);
+    color: var(--code-ink);
+    padding: 14px 16px;
+    border-radius: 8px;
+    overflow-x: auto;
+    border: 1px solid var(--line);
+  }
+  pre code { background: none; padding: 0; font-size: 0.85em; line-height: 1.5; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 14px 0;
+    font-size: 0.93em;
+  }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 7px 11px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--thead-bg); font-weight: 600; }
+  tr:nth-child(even) td { background: var(--code-bg); }
+  blockquote {
+    margin: 12px 0;
+    padding: 6px 16px;
+    border-left: 3px solid var(--accent);
+    color: var(--muted);
+  }
+  strong { color: var(--ink); }
+  a { color: var(--accent); }
+  hr { border: none; border-top: 1px solid var(--line); margin: 32px 0; }
+  .tag {
+    display: inline-block;
+    font-size: 0.72em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 1px 6px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+</style>
+</head>
+<body>
+<article>
+
+<header class="title">
+  <h1>架构与生成工作流</h1>
+  <p>一段自然语言提示如何变成手机上运行的原生 ArkUI 界面，分有 Jev 和无 Jev 两种情形。这是 <code>docs/agent.md</code> 的设计与实现详解——后者是更简短的操作说明。</p>
+</header>
+
+<nav class="toc">
+  <h2>目录</h2>
+  <ol>
+    <li><a href="#layering">分层</a></li>
+    <li><a href="#catalogue">目录：section 与 part</a></li>
+    <li><a href="#jev">Jev</a></li>
+    <li><a href="#plan">需求计划</a></li>
+    <li><a href="#paths">两条路径</a></li>
+    <li><a href="#degradation">优雅降级——没有 Jev 时</a></li>
+    <li><a href="#switches">开关与启动参数</a></li>
+    <li><a href="#observability">可观测性</a></li>
+    <li><a href="#files">文件索引</a></li>
+    <li><a href="#ideas">核心思想</a></li>
+  </ol>
+</nav>
+
+<h2 id="layering">1. 分层</h2>
+
+<pre><code>prompt ──► agent route ──► Vera source ──► compiler ──► VM ──► ArkUI (VeraPreview)
+              (VeraBuildRoute)    (.vera)   (VeraCompiler)        (renderer)</code></pre>
+
+<table>
+<thead><tr><th>层</th><th>是什么</th><th>位置</th></tr></thead>
+<tbody>
+<tr><td><strong>Vera</strong></td><td>路由发出、模型书写的 DSL——<code>ui.*</code> 目录调用、<code>state</code>、处理器、<code>intent.call</code>、<code>sdk.call</code></td><td><code>docs/examples/shanghai-layover.vera</code></td></tr>
+<tr><td><strong>VeraCompiler</strong></td><td>带恢复地解析 Vera、做类型检查，再输出 VM 程序；<code>compileVeraSource</code> <strong>抛出</strong>携带 <code>.diagnostics</code> 的 <code>CompileError</code>（而非把诊断返回出来）</td><td><code>vera/VeraCompiler.ets</code></td></tr>
+<tr><td><strong>VM</strong></td><td>运行编译后的程序；intent 式目标会得到真实派发</td><td><code>vera/VeraCompiler.ets</code>（运行时）、<code>vera/VeraVm.ets</code></td></tr>
+<tr><td><strong>VeraPreview</strong></td><td>把运行中的程序渲染成原生 ArkUI；自己保留一份硬编码的节点种类清单，<strong>启动时若与目录不一致就报警</strong></td><td><code>components/VeraPreview.ets</code></td></tr>
+<tr><td><strong>ArkTS</strong></td><td>应用本身用的宿主语言——编译器、VM、渲染器、目录都靠它写。模型和 composer 从不写 ArkTS，只写 Vera</td><td>—</td></tr>
+</tbody>
+</table>
+
+<p>目录是<strong>一份纯数据描述</strong>（<code>vera/VeraUiCatalog.ets</code>）。编译器接口、校验器和模型提示词都从它生成，所以彼此不会漂移；唯独渲染器另留一份清单，并在启动时校验一致性。新增一个组件只需编辑目录、在 <code>VeraUi.ets</code> 加一个 case、在 <code>VeraPreview.ets</code> 加一个分支——编译器、校验器和提示词会自动跟着目录走。</p>
+
+<h2 id="catalogue">2. 目录：section 与 part</h2>
+
+<p>界面由若干 <strong>block</strong> 拼装而成，它们都遵循同一种格式 <code>FragmentSpec</code>（<code>vera/VeraTemplates.ets</code>）：状态字段、处理器、一个视图骨架（<code>sections.push(ui.Section(...))</code>），加上 content/port/hole 的占位 token。block 分两类：</p>
+
+<ul>
+<li><strong>Section</strong>：目录自带的预制模板。在 <code>fragments()</code>（<code>VeraTemplates.ets:2422</code>）里注册了 <strong>29</strong> 个：checklist、record_log、master_list、search_list、detail_view、list_summary、filter_box、bar_chart、series_chart、trend_chart、number_strip、breakdown_table、data_table、metrics、timer、timeline、itinerary、progress_goal、progress_line、key_facts、live_facts、spotlight、note、rating、actions、intent_panel、calendar_event、reminders、settle_up。Jev 只在其中一个子集里挑，对应 section 能整体搞定的那些需求：<code>READY_KINDS</code>（10 个）给 ready 需求，<code>LIST_SECTIONS</code>（<code>record_log, reminders</code>）给列表，<code>timer</code> 给倒计时。</li>
+<li><strong>Part</strong>：composer 自己的 block（clock、list、输入/控件、计算值/公式、effect）。它们由 <code>part(kind, fields, functions, view)</code> 按 Jev 的逐属性选择<strong>用代码拼装</strong>而成，并非取自模板。<code>compositionParts(comp)</code> 负责收集它们。</li>
+</ul>
+
+<p>composer 通过 <code>assembleProgram(comp)</code>（<code>vera/VeraCompose.ets:3763</code>）把 section 和 part 缝合成一个程序，输出 Vera 源码。<strong>快路径上的代码由 composer 生成；模型不写任何整程序 Vera。</strong> 模型只负责填充 section 的文本/content（以及 section 内部的小型 <em>目录 hole</em>——某个函数体），外加 §5 介绍的 hole。</p>
+
+<h3 id="part">2.1 一个 part 是怎么拼出来的</h3>
+
+<p>part 是用代码拼出来的，不是往模板里填的。<code>part()</code>（<code>VeraCompose.ets:2895</code>）是个小工厂，把四个数组打包成一个 <code>FragmentSpec</code>：</p>
+
+<pre><code>function part(kind: string, fields: Field[], functions: string[], view: string[],
+             supportClass: string = '', initStatements: string = ''): FragmentSpec {
+  // fields → 状态字段 + 初始值；functions → 处理器函数体；view → 视图行
+  let state: StateFieldSpec[] = []
+  let inits: string[] = []
+  for (let f of fields) { state.push(new StateFieldSpec(f.name, f.type)); inits.push(f.name + ': ' + f.init) }
+  let spec = new FragmentSpec(kind, '', supportClass, state, initStatements,
+                              inits.join(', '), functions.join('\n\n'), view.join('\n'), [], [])
+  spec.indexed = false   // 是 part，不是目录 section
+  return spec
+}</code></pre>
+
+<p>这四个入参正好对应 <code>FragmentSpec</code> 里的四块：<code>fields</code> → 状态、<code>functions</code> → 处理器、<code>view</code> → 视图行、<code>kind</code> → part 的名字。这里没有套模板这一说——这些数组都是照着 sketch 和 Jev 的回答，在代码里一行行攒出来的。</p>
+
+<p>下面这组 builder，每个各管 <code>Composition</code> 的一块，各自产出一个 part：</p>
+
+<ul>
+<li><code>figuresPart</code>（<code>:3110</code>）——其余 part 都要引用的那批 <code>let</code> 局部变量（每个输入、时钟的时间、列表的条数和总和、每个值的公式），外加让目录 section 能经端口读到某个值的 port 函数。</li>
+<li><code>inputsPart</code>（<code>:3170</code>）——每个输入配一个控件和一个 setter；<strong>用哪个控件由 Jev 决定</strong>（<code>comp.widgets.get(input.id)</code>），进而决定走哪条 <code>ui.*</code> 调用（<code>ui.Select</code>、<code>ui.Slider</code>、<code>ui.Toggle</code>、<code>ui.TextField</code>……）。</li>
+<li><code>clockPart</code>（<code>:3065</code>）、<code>listPart</code>（<code>:3239</code>）、<code>effectsPart</code>（<code>:3485</code>）——分别是时钟的 Ticker 和 start/stop/reset、列表的 <code>LogEntry</code> 类与增删处理器、界面按钮和手机应答横幅。</li>
+<li><code>heroPart</code>（<code>:3145</code>）、<code>summaryPart</code>（<code>:3227</code>）——只管布局，不带状态也不带处理器（<code>part('hero', [], [], view)</code>）。</li>
+<li><code>widgetPart</code>（<code>:3489</code>）——chat widget 的两段式骨架。</li>
+</ul>
+
+<p><code>compositionParts(comp)</code>（<code>:3495</code>）按界面顺序把它们收拢起来，然后特意多做了一步：<strong>把每个 part 的 <code>viewBlock</code> 清空，把里面的视图行缝进末尾那个 <code>screen</code> part</strong>：</p>
+
+<pre><code>let view: string[] = ['{']
+for (let p of parts) {
+  for (let line of p.viewBlock.split('\n')) { if (line.length > 0) { view.push('  ' + line) } }
+  p.viewBlock = ''
+}
+view.push('}')
+parts.push(part('screen', [], [], view))</code></pre>
+
+<p><code>figures</code> part 会定义一批局部变量（<code>let duration = …; let tip = …;</code>），hero、summary、list 这些 part 的视图行都要引用它们，所以它们必须落在同一个作用域里。把所有视图行折进一个 <code>{ … }</code> 块，既保住了这些变量的作用域，又不会和同屏的其它目录 section 混在一起。</p>
+
+<p>之后 <code>assembleProgram(comp)</code>（<code>:3763</code>）把这些 part 连同 Jev 选定的目录 section（<code>comp.blocks</code>）一起拼成 Vera 源码：</p>
+
+<pre><code>export function assembleProgram(comp: Composition, blockValues: Map&lt;string, string&gt;[] = [],
+                               custom: FragmentSpec | null = null): string {
+  if (comp.unbound.length > 0) { return '' }   // 有开放槽位 → 不出程序
+  return assemblePlan(screenPlan(comp, blockValues, custom), true)
+}</code></pre>
+
+<p>开头那个守卫就是“带开放槽位的计划不予交付”那条规则：只要有还没绑定的值，拼装就到此为止。<code>screenPlan</code> 把 part 和 section 交错排好，<code>assemblePlan</code> 输出状态块、处理器和合并后的视图。</p>
+
+<p>所以说，快路径上的代码是 composer 写的——Jev 只决定了每个槽位里放哪个控件、公式、effect 和触发时机；剩下的交给 builder，一个字段、一个处理器、一条 <code>ui.*</code> 调用，把字符串一点点攒出来。</p>
+
+<h2 id="jev">3. Jev</h2>
+
+<p>Jev 是 TypeSafe 的 System One 模型（<code>jev-latest</code>，<code>https://api.typesafe.ai/v1/systemone</code>），调用时携带 Bearer key——即 <strong>TypeSafe key</strong>，由 <code>--ps typesafeKey ...</code> 启动参数传入，并以 <code>selectorKey</code> 持久化到 <code>{filesDir}/vera/settings.json</code>（<code>vera/SettingsStore.ets</code>、<code>EntryAbility.extractSelectorKey</code>）。</p>
+
+<p>所有线上 Jev 调用都走两个入口之一：<strong><code>askJev</code></strong>（<code>vera/VeraCompose.ets:3909</code>），在 <code>agent/AgentAppHost.ets:21</code> 接为 <code>host.askJev</code>；以及 <strong><code>selectEdit</code></strong>（<code>vera/VeraComposition.ets:446</code>），仅用于 refine 路径。Jev 的职责可以概括为一句话：<em>逐项提问，以概率/置信度作答</em>。具体落在六处：</p>
+
+<ol>
+<li><strong>组合选择</strong>。<code>composeNeeds</code>（<code>vera/NeedsChoose.ets</code>）里发起两次 Jev 调用：先是 <strong>section-or-part</strong> 调用（<code>buildChooseRequest</code>），对每一个 section 和 part 都能胜任的需求，把两者并排摆出来让 Jev 选（倒计时 → <code>timer</code> section 或 clock part；列表 → 一个 <code>LIST_SECTIONS</code> section 或 list part；每个 ready 需求 → 一个 <code>READY_KINDS</code> section，或人自己的记录）；接着是 <strong>逐属性</strong> 调用（<code>VeraCompose.ets</code> 的 <code>buildComposeRequest</code>），处理剩下的部分——每个输入配一个控件、每个值配一个公式、每个事件配一个 effect 和一个触发时机，再加主题，以及某个 section 是否需要真实数据。</li>
+<li><strong>问题</strong>（<code>agent/AgentQuestions.ets</code>，<code>askBlocking</code>）。厘清 sketch 中的问题，只保留那些默认值兜不住的。</li>
+<li><strong>剩余对齐</strong>（<code>agent/AgentAlign.ets</code>，<code>alignLeftovers</code>）。先把 agent 的 section 留下的开放项跟目录对齐，避免把 section 已经覆盖的细节再写一遍。</li>
+<li><strong>槽位值</strong>（<code>VeraSectionCompose.ets</code> 的 <code>buildSlotRequest</code>，经 <code>VeraAgent.ets:196</code> 的 <code>host.askJev</code>）。读取各 block 槽位的取值。</li>
+<li><strong>校验</strong>（<code>agent/AgentClaims.ets</code>、<code>agent/AgentHole.ets</code>）。Jev 拿模型写的代码逐条对照每个需求：哪些声明的需求程序还没做到（<code>claimsUndone</code>）、哪些开放槽位界面已经覆盖（<code>claimsDone</code>），以及 hole 自己的 verify。</li>
+<li><strong>Refine</strong>（<code>vera/VeraComposition.ets</code>，<code>selectEdit</code>）。当编辑已有组合而非从零重建时用到。</li>
+</ol>
+
+<p><strong>Jev 从不写文本或代码</strong>，它只在目录或 composer 已备好的选项里做选择。这条准则借自 json-render 的 Jev composer，这里把它推广到带逻辑的程序：Jev 回答一个个独立问题，composer 用代码拼装结果，程序跑起来之前什么都不计算。</p>
+
+<p><strong>Jev 不负责查找 intent 或 SDK 函数。</strong> 一个请求需要哪些手机 intent 与 SDK 函数，靠的是 <strong>embedding</strong> 而非 Jev：<code>findIntentFunction</code>（关键词与 embedding 排序并用）和 <code>findSdkFunction</code>（先 embedding、后关键词缓存）在 hole 路径中按手机槽位逐个跑（<code>vera/VeraIntentIndex.ets</code>、<code>vera/VeraSdkIndex.ets</code>，外加 <code>*EmbeddingCache</code> 模块）。UI 目录本身也由 <code>selectUiForPrompt</code>（embedding）为提示词收窄，跟 Jev 无关。早期用于 Jev intent 预筛选的 <code>vera/JevSelector.ets</code>（<code>selectDomains</code>/<code>selectTargets</code>）和 block section 选择的 <code>vera/VeraSectionCompose.ets</code>（<code>selectSections</code>），已随 block 管线移除而废弃，在当前代码树里<strong>再无调用方</strong>——代码还留着，但不在线上路径上。</p>
+
+<h2 id="plan">4. 需求计划</h2>
+
+<p>两条路径最终都产出一个 <strong><code>ScreenPlan</code></strong>（<code>vera/ScreenPlan.ets</code>）：界面的 <em>state</em>（具名值）、它的 <em>slots</em>（每一件它要做的事，读什么、写什么、是不是手机动作），以及填充它们的 <em>components</em>。组件的 fill 取下列之一：<code>FILL_OPEN</code>、<code>FILL_PART</code>、<code>FILL_BLOCK</code>、<code>FILL_EFFECT</code>、<code>FILL_HOLE</code>、<code>FILL_REPORTED</code>。槽位在被某物填充之前一直是 <em>open</em> 状态；<strong>只要还有开放槽位，计划就不会交付。</strong></p>
+
+<p>计划始于一个 <strong>sketch</strong>——生成模型在关闭 thinking 时写出的 JSON：输入、常量、带公式的值、一个倒计时或 stopwatch、一个列表、事件（手机做什么、何时做）、ready 需求、其它条目，再加至多两个问题。模型收到 <code>NEEDS_PROMPT</code>（<code>vera/NeedsPlan.ets:64</code>）的提示，回复由 <code>parseSketch</code>（<code>vera/VeraCompose.ets:225</code>）解析。sketch 是模型的活，与 Jev 无关。它会反复请求直到拿到一个：先试一次，再带着错误引用重试一次，最后开启 thinking 再试一次。</p>
+
+<p>sketch 是两条路径之间的枢纽：两条路径都要画它，而快路径拼不出程序时，慢路径正是对照它来书写的。</p>
+
+<h2 id="paths">5. 两条路径</h2>
+
+<p>路由（<code>agent/VeraBuildRoute.ets</code>，<code>buildScreen</code>）是生成新界面的唯一入口，Generate 界面和 chat 都从这里走。它只决定由哪个 builder 交付，自己从不从零生成，调用方也不行。</p>
+
+<h3 id="fast">5.1 快路径——有 Jev</h3>
+
+<p><code>runAgent</code>（<code>agent/VeraAgent.ets</code>）→ <code>composeNeeds</code>（<code>vera/NeedsChoose.ets</code>）：</p>
+
+<ol>
+<li><strong>计划。</strong> 模型写出 sketch（thinking 关闭，按上面的方式重试）。</li>
+<li><strong>问题。</strong> sketch 的问题在卡片上展示给人；只要给了非默认回答，就重新规划。</li>
+<li><strong>Jev 调用 #1——section 还是 part。</strong> 对 sketch 做一次 Jev 调用。凡是 section 兜不住的选项，都在询问 <em>之前</em> 就依据计划自身的事实移除，所以一个选择不会被收回。Jev 没给选择的，就保留 part。</li>
+<li><strong>Jev 调用 #2——逐属性。</strong> 一次 Jev 调用搞定控件、公式、effect 和触发时机，不再重问 #1 已定的事。若不回答就再问一次。</li>
+<li><strong>拼装。</strong> <code>readComposition</code> → <code>Composition</code> → <code>assembleProgram</code> 从挑好的 section + part 输出 Vera 源码。</li>
+<li><strong>填充。</strong> 书写 section 的文本/content（必须真实时来自网络搜索），并填充其小型目录 hole（<code>vera/SectionFill.ets</code>、<code>SectionFillApp.ets</code>）。</li>
+<li><strong>检查。</strong> 拼好的程序编译一次，并逐个触发处理器运行；失败则把错误以 SEARCH/REPLACE 编辑的形式回传修复，至多两次（<code>agent/AgentRepair.ets</code>、<code>settleProgram</code>）。</li>
+</ol>
+
+<p>若 composer 产出程序，<code>result.vbc2</code> 非空，路由返回 <code>OUTCOME_AGENT</code>。<strong>这条路径上不出现模型写的整程序代码</strong>——代码由 composer 生成，模型只填了文本和小 hole。</p>
+
+<h3 id="slow">5.2 慢路径——没有 Jev，或快路径交付不了时</h3>
+
+<p>当 composer 拿不出程序（Jev 没回答，或 sketch 留下了现成物填不上的槽位），路由就落到 <code>writeWholeScreen</code>（<code>VeraBuildRoute.ets:59</code>）：</p>
+
+<ol>
+<li><strong>模型把整个界面当成一个 hole 来写</strong>——即 Vera 源码，对照计划已画好的 sketch（没有 sketch 时则对照裸请求）。<code>writeHole</code>（<code>agent/AgentHole.ets</code>）是书写者；它对照 Generate 页加载好的 Vera 技能（<code>rawfile/vera-skill.txt</code>，<code>{{UI_CATALOG}}</code> 已拼入）来写，这份技能以 <code>host.language</code> 传入宿主——<code>AgentHole</code> 用 <code>host.language.length === 0</code> 作门控（没有技能就没有 hole）。</li>
+<li>对每个 <strong>手机槽位</strong>，应用自己的查找会先跑一遍——<code>findIntentFunction</code>（关键词与 embedding 排序并用）和 <code>findSdkFunction</code>（先 embedding、后关键词缓存）——section 只能调用它们返回的目标。每个 <code>sdk.call</code> 目标在交付前都要过一遍检查。</li>
+<li>写好的 section 编译一次，并逐个触发处理器运行；失败则把错误以编辑形式回传修复，至多两次；快速尝试之后，再开启 thinking 多试一次。</li>
+<li><strong>Jev 拿它对照每个需求</strong>（<code>claimsUndone</code>/<code>claimsDone</code>）；被判为没做到的需求会被重新请求。若仍不行，就把能跑且做到了一部分的最佳尝试连同缺什么一起交付；一个都跑不通，就在原位放一条说明；<code>&lt;cannot&gt;</code>（本手机无物可做）则按书写者所说上报、不重试。</li>
+</ol>
+
+<p>若整屏 hole 能交付，路由返回 <code>OUTCOME_AGENT</code>（界面建好了，只是这次全靠模型单独完成）。若它也失败，路由返回 <code>OUTCOME_NOT_BUILT</code> 并附上原因——路由除了它不从零生成，调用方也一样；chat 和 Generate 界面都会显示这个原因。</p>
+
+<p>慢路径要求 <code>request.mode === 'deepseek'</code>（云），并且整屏 hole 是开启的（默认即开）。在 <code>MODE_LOCAL</code>（端侧 Qwen）或 <code>MODE_SERVER</code> 下没有整屏兜底，所以无 Jev 时这些模式直接返回 <code>OUTCOME_NOT_BUILT</code>。</p>
+
+<h2 id="degradation">6. 优雅降级——没有 Jev 时会发生什么</h2>
+
+<p><strong>一个答不上来的 selector，绝不能卡住整个生成。</strong> 这是每个线上 Jev 调用点都恪守的准则，也是无 Jev 时走的是慢路径而非直接失败的根本原因。</p>
+
+<table>
+<thead><tr><th>Jev 角色</th><th>无 key / 不可达</th><th>对管线的影响</th></tr></thead>
+<tbody>
+<tr><td>组合选择（<code>NeedsChoose</code>、<code>VeraCompose</code>）</td><td><code>askJev</code> 返回 <code>''</code>（空 bearer 时 401，或捕获到异常）；重试一次；<code>composeFromSketch</code> 返回 <code>'Jev did not answer twice'</code> 且拿不到组合</td><td>composer 拿不到结果 → 路由落到 <code>writeWholeScreen</code></td></tr>
+<tr><td>问题 / 对齐 / 槽位值（<code>AgentQuestions</code>、<code>AgentAlign</code>、<code>VeraSectionCompose</code>）</td><td>空回答 → 保留默认值、不做对齐、不读槽位值</td><td>照常推进；以计划自身的默认值为准</td></tr>
+<tr><td>校验（<code>AgentClaims</code>、<code>AgentHole</code>）</td><td>空回答 → <code>claimsUndone</code>/<code>claimsDone</code> 返回 <code>[]</code>（文档注明："[] when Jev did not answer"）</td><td>没有未满足的声明，也就无可修——写好的界面照原样交付</td></tr>
+<tr><td>refine（<code>VeraComposition.selectEdit</code>）</td><td>空回答 → 编辑不生效</td><td>既有组合原样保留</td></tr>
+</tbody>
+</table>
+
+<p><code>askJev</code>（<code>vera/VeraCompose.ets:3909</code>）从不抛异常：返回非 200 或捕获到异常时，一律 <code>noteService(SERVICE_JEV, false, ...)</code> 并 <code>return ''</code>。线上各调用方都能像上面那样容忍空串。（<code>JevSelector.ets</code> 的 <code>selectDomains</code>/<code>selectTargets</code> 和 <code>VeraSectionCompose.ets</code> 的 <code>selectSections</code> 同样是宽失败，但它们没有调用方——见 §3。）</p>
+
+<p>净效果：<strong>没有 Jev，界面照样能建出来</strong>——靠模型写整屏 hole（慢路径，约 30 秒起步，也就是 Jev 出现之前的生成成本）。有 Jev 时，快路径从挑好的 section/part 拼装，中位耗时约 2-7 秒（<code>docs/agent.md</code> 结果：纯 composer-part 为 2.0 秒，带书写 section 时达 6.7 秒）。这次 23 个提交的 <code>dev/main</code> 合并让 Jev 在<em>快</em>路径里更吃重（需求计划的 section/part 选择），但<strong>并未</strong>给<em>慢</em>路径新增 Jev 依赖：整屏 hole 的 Jev 校验在合并之前就已经在，并且早已能容忍 Jev 缺席。</p>
+
+<p>查找 intent 与 SDK 函数这件事完全不靠 Jev：它走的是 embedding（<code>findIntentFunction</code>、<code>findSdkFunction</code>），当 embedding 模型不在（没有 <code>llama.cpp</code> 的 stub 构建）时回退到关键词。所以哪怕是 stub 构建，手机函数照样找得到——只是按关键词匹配排序，而不是按语义。</p>
+
+<h2 id="switches">7. 开关与启动参数</h2>
+
+<p>所有启动参数都持久化（<code>{filesDir}/vera/settings.json</code>）并在重启后保留；没有一个写进源码。</p>
+
+<table>
+<thead><tr><th>参数</th><th>作用</th></tr></thead>
+<tbody>
+<tr><td><code>--ps cloudKey sk-...</code></td><td>云模型的 API key（provider 中性别名；<code>deepseekKey</code> 是历史名）</td></tr>
+<tr><td><code>--ps apiBase URL</code></td><td>chat-completions 基址；引擎会追加 <code>/chat/completions</code></td></tr>
+<tr><td><code>--ps apiModel NAME</code></td><td>请求里发送的模型名</td></tr>
+<tr><td><code>--ps typesafeKey KEY</code></td><td><strong>启用 Jev。</strong> 缺它时每次 Jev 调用都按 §6 回退</td></tr>
+<tr><td><code>--ps reasoningEffort low|high|max</code></td><td>生成前模型推理的力度</td></tr>
+<tr><td><code>--ps exaKey KEY</code></td><td>chat 的网络搜索 key（可选；缺它则没有搜索工具）</td></tr>
+<tr><td><code>--ps veraServer URL</code></td><td>vera-server 地址，用于 Server 生成模式</td></tr>
+<tr><td><code>--ps veraTemplateSelect 0</code></td><td>为本会话禁用 Jev 模板路径（用来与纯生成对比）</td></tr>
+<tr><td><code>--ps veraOrder blocks-first</code></td><td>在 agent 之前先跑 blocks</td></tr>
+<tr><td><code>--ps veraCustom 0</code></td><td>关闭书写式（模型）section</td></tr>
+<tr><td><code>--ps veraWhole 0</code></td><td>关闭整屏 hole——<strong>不要和无 Jev 并用</strong>，否则啥也交付不了</td></tr>
+</tbody>
+</table>
+
+<p><code>apiBase</code>/<code>apiModel</code> 可以指向任何 OpenAI 兼容的 chat-completions 端点；DeepSeek 原生字段（<code>thinking</code>、<code>reasoning_effort</code>）只在 <code>settings.isDeepSeek()</code> 为真（基址是 DeepSeek，或模型名里含 <code>deepseek</code>）时才发送，所以把 <code>apiBase</code> 指到别处会自动把这套方言关掉。Jev 不管云 provider 是谁，始终调用 <code>api.typesafe.ai</code>。</p>
+
+<h2 id="observability">8. 可观测性</h2>
+
+<ul>
+<li><strong>阶段</strong>（<code>vera/RunStages.ets</code>）：每一步都标明是谁做的——<code>WHO_MODEL</code>、<code>WHO_PHONE</code>、<code>WHO_JEV</code>——以及墙钟耗时。Generate 界面的 metrics 标签页通过 <code>attemptsPanel()</code>、<code>tokensPanel()</code>、<code>toolsPanel()</code>、<code>servicesPanel()</code>（<code>pages/GeneratePage.ets</code>）把它们画出来。</li>
+<li><strong>服务健康</strong>（<code>vera/ServiceHealth.ets</code>）：<code>noteService(SERVICE_DEEPSEEK, ok, ...)</code>、<code>noteService(SERVICE_JEV, ok, ...)</code> 每次调用都 ping 一下；services 面板显示可达性。</li>
+<li><strong>工具日志</strong>（<code>vera/ToolLog.ets</code>）：<code>toolCount</code>/<code>toolSpanSince</code> 把手机查找的耗时计入模型阶段。</li>
+<li><strong>追踪</strong>：每个写出的 hole 都会被记录——应用追踪里的一个 <code>hole</code> 事件，以及每次宿主运行旁的 <code>holes.jsonl</code>；<code>tools/vera-harness/hole-report.py</code> 按反复出现的需求归并（也就是目录里缺的那些 block）。</li>
+</ul>
+
+<h2 id="files">9. 文件索引</h2>
+
+<table>
+<thead><tr><th>文件</th><th>是什么</th></tr></thead>
+<tbody>
+<tr><td><code>vera/VeraUiCatalog.ets</code></td><td><code>std/ui</code> 的唯一纯数据描述；编译器、校验器和提示词都从它生成</td></tr>
+<tr><td><code>vera/VeraTemplates.ets</code></td><td>29 个 <code>FragmentSpec</code> section 模板，注册于 <code>fragments()</code></td></tr>
+<tr><td><code>vera/VeraCompose.ets</code></td><td>composer：sketch、Jev 的逐属性选择、<code>assembleProgram</code>、<code>askJev</code></td></tr>
+<tr><td><code>vera/NeedsPlan.ets</code></td><td>需求计划的提示词与解析器</td></tr>
+<tr><td><code>vera/NeedsChoose.ets</code></td><td>section-or-part 的 Jev 调用与 <code>composeNeeds</code>（快路径的协调者）</td></tr>
+<tr><td><code>vera/ScreenPlan.ets</code></td><td>两条路径都产出的统一计划格式（state、slots、components）</td></tr>
+<tr><td><code>vera/JevSelector.ets</code></td><td>intent 预筛选（domain + intent 两趟）——<strong>随 block 管线移除而废弃，再无调用方</strong>；代码仍保留</td></tr>
+<tr><td><code>vera/VeraIntentIndex.ets</code> / <code>VeraSdkIndex.ets</code></td><td>线上 intent/SDK 函数查找（关键词），配 <code>*EmbeddingCache</code> 模块提供 embedding 排序</td></tr>
+<tr><td><code>vera/VeraCompiler.ets</code></td><td>解析并编译 Vera；<code>compileVeraSource</code> 抛出 <code>CompileError</code></td></tr>
+<tr><td><code>components/VeraPreview.ets</code></td><td>把运行中的程序渲染为 ArkUI；对目录做漂移检查</td></tr>
+<tr><td><code>agent/VeraBuildRoute.ets</code></td><td>路由：<code>runAgent</code> → <code>writeWholeScreen</code> → <code>OUTCOME_NOT_BUILT</code></td></tr>
+<tr><td><code>agent/VeraAgent.ets</code></td><td>运行 agent：计划、选择、对齐剩余、声明</td></tr>
+<tr><td><code>agent/AgentHole.ets</code></td><td><code>writeHole</code>——模型书写的 section / 整屏 hole，带查找与 verify</td></tr>
+<tr><td><code>agent/AgentRepair.ets</code></td><td><code>settleProgram</code>——编译、运行、按编辑修复</td></tr>
+<tr><td><code>agent/AgentClaims.ets</code></td><td><code>claimsUndone</code>/<code>claimsDone</code>——对书写代码的 Jev 校验</td></tr>
+<tr><td><code>agent/AgentQuestions.ets</code></td><td><code>askBlocking</code>——经 Jev 厘清 sketch 的问题</td></tr>
+<tr><td><code>agent/AgentAlign.ets</code></td><td><code>alignLeftovers</code>——经 Jev 把开放槽位与目录对齐</td></tr>
+<tr><td><code>vera/SettingsStore.ets</code></td><td>设备本地设置（key、model、base URL、selectorKey）；<code>isDeepSeek</code>、<code>providerLabel</code></td></tr>
+<tr><td><code>entryability/EntryAbility.ets</code></td><td>把启动参数读进 <code>SettingsStore</code> 和特性开关</td></tr>
+</tbody>
+</table>
+
+<h2 id="ideas">10. 核心思想（每条一行）</h2>
+
+<ul>
+<li><strong>Jev 挑选，composer 拼装，模型只写 hole。</strong> Jev 从不写文本或代码，只就现成选项回答一个个独立问题。</li>
+<li><strong>统一 block 格式</strong>（<code>FragmentSpec</code>）目录 section 和 composer part 共用，拼装器一视同仁。</li>
+<li><strong>目录是纯数据。</strong> 编译器、校验器和提示词都从它生成；唯独渲染器另留一份清单，并在启动时做漂移检查。</li>
+<li><strong>规划和构建都各有快慢两条路。</strong> Jev 挑现成的（快），模型写那些没有现成物可做的（慢），一路退到把整屏当成一个 hole。</li>
+<li><strong>sketch 是枢纽。</strong> 两条路径都要画它，快路径拼不出时，慢路径正是对照它来写。</li>
+<li><strong>答不上来的 selector 不得卡住生成。</strong> 每个 Jev 调用点都有退路——退到整个目录、退到 part、退到 <code>[]</code>——所以无 Jev 只是慢路径，不是失败。</li>
+<li><strong>intent 查找靠 embedding，不靠 Jev。</strong> <code>findIntentFunction</code>/<code>findSdkFunction</code> 按语义给手机函数排序（stub 构建回退到关键词），所以没有 Jev 也能找到手机函数——Jev 干的是在现成选项里挑选，不是找手机函数。</li>
+<li><strong>路由除了它不从零生成，调用方也一样。</strong> 整屏 hole 是最后的模型手写退路；再不行，就是 <code>OUTCOME_NOT_BUILT</code> 并附上原因。</li>
+<li><strong>还有开放槽位的计划不予交付。</strong> 计划要求界面做的每一件事都必须被填上——用 section、part、手写 hole 或一条说明。</li>
+</ul>
+
+</article>
+</body>
+</html>
