@@ -166,7 +166,7 @@ run('Parser recovery: every syntax error in one compile, without cascades',()=>{
   }
   function reset(){requests.length=0;responses.length=0;}
   function method(src,name){
-    const start=src.search(new RegExp('private (?:async )?'+name+'\\('));assert(start>=0,'Method '+name);
+    const start=src.search(new RegExp('private (?:async )?'+name+'(?:<[^>]*>)?\\('));assert(start>=0,'Method '+name);
     const scanner=ts.createScanner(ts.ScriptTarget.Latest,true,ts.LanguageVariant.Standard,src.slice(start));
     let depth=0,opened=false;
     while(scanner.scan()!==ts.SyntaxKind.EndOfFileToken){
@@ -175,37 +175,38 @@ run('Parser recovery: every syntax error in one compile, without cascades',()=>{
     }
     throw Error('Unclosed method '+name);
   }
-  const pipeline=load(path.join(base,'VeraTemplatePipeline.ets'));
-  // The template pipeline and the trace are swapped per check: tpl.build answers buildFromTemplates, traces collects trace().
+  // The route and the trace are swapped per check: tpl.build answers buildScreen, traces collects trace().
   const tpl={build:async()=>{throw Error('No template build set')}},traces=[];
-  // The page reaches the blocks through the route (agent/VeraBuildRoute.ets), which calls the pipeline's export.
-  pipeline.buildFromTemplates=(...a)=>tpl.build(...a);
   const route=load(path.join(base,'agent','VeraBuildRoute.ets')),agent=load(path.join(base,'agent','VeraAgent.ets')),agentHost=load(path.join(base,'agent','AgentHost.ets'));
   // side.selectUi answers selectUiForPrompt and side.edit answers editComposition.
-  const side={selectUi:async()=>null,edit:async()=>{throw Error('No structural edit set')}};
-  function templateBuild(action,fields){return Object.assign(new pipeline.TemplateBuild(),{action,source:'TEMPLATE',vbc2:'["VBC2"]',kinds:['list'],composition:'{"blocks":1}',status:action},fields);}
+  const side={compose:false,selectUi:async()=>null,edit:async()=>{throw Error('No structural edit set')}};
+  function notBuilt(){return Object.assign(new route.RouteOutcome(),{kind:route.OUTCOME_NOT_BUILT,reason:'test'});}
   async function settle(c){for(let i=0;i<5;i++)await new Promise(r=>setTimeout(r,0));if(c.pending)await c.pending;}
   function page(){
     const src=read('entry/src/main/ets/pages/GeneratePage.ets');
     const prefix=src.slice(0,src.indexOf('@Entry')).replace(/^import .*$/gm,'');
-    const code=prefix+'\nclass Controller { '+['hostContext','callModel','runAttempt','doRefine','traceEnd','doGenerate','tryRoute','traceAgent','showAgent','noteBlocks','showTemplate','settleQuestion','askPerson','startAttemptOne','tryStructuralEdit','fallBackToTemplate','refineWithModel','stopGeneration','originLabel'].map(n=>method(src,n)).join('\n')+' } module.exports=Controller;';
+    const code=prefix+'\nclass Controller { '+['hostContext','callModel','runAttempt','doRefine','traceEnd','closeRun','doGenerate','tryRoute','traceAgent','showAgent','settleQuestion','askPerson','startAttemptOne','tryStructuralEdit','fallBackToTemplate','refineWithModel','stopGeneration','originLabel','measuredTotal','addMetricUsage','metricWork','collectMetricSideCalls','beginMetricAttempt','recordMetricResult','finishMetrics','acceptRequest','copyMetrics','prepareRequest','ratePerMillion','modeLabel'].map(n=>method(src,n)).join('\n')+' } module.exports=Controller;';
     const compiled=ts.transpileModule(code,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020},reportDiagnostics:true});
     assert.equal((compiled.diagnostics||[]).filter(d=>d.category===ts.DiagnosticCategory.Error).length,0,'Extracted generation controller syntax');
-    const globals={ensureCapabilities:async()=>{},logStep:()=>{},logMark:()=>{},trace:(name,fields)=>{traces.push({name,fields});},
-      composeEnabled:()=>false,composePlanEnabled:()=>false,templateSelectEnabled:()=>true,BUILD_TEMPLATE:pipeline.BUILD_TEMPLATE,BUILD_COMPLETE:pipeline.BUILD_COMPLETE,
-      buildScreen:route.buildScreen,RouteRequest:route.RouteRequest,OUTCOME_AGENT:route.OUTCOME_AGENT,OUTCOME_TEMPLATE:route.OUTCOME_TEMPLATE,OUTCOME_COMPLETE:route.OUTCOME_COMPLETE,OUTCOME_CANCELLED:route.OUTCOME_CANCELLED,
-      AgentRequest:agent.AgentRequest,appAgentHost:(status,preview,cancelled)=>Object.assign(new agentHost.AgentHost(),{status,preview,cancelled}),traceCompile:()=>{},UI_SELECT_FULL:selection.UI_SELECT_FULL,UI_SELECT_PROMPT:selection.UI_SELECT_PROMPT,settings,deepseek:deep.deepseek,DEEPSEEK_GENERATION_MAX_TOKENS:deep.DEEPSEEK_GENERATION_MAX_TOKENS,
+    const globals={animateTo:(options,update)=>update(),Curve:{EaseInOut:0},ensureCapabilities:async()=>{},logStep:()=>{},logMark:()=>{},trace:(name,fields)=>{traces.push({name,fields});},
+      composeEnabled:()=>side.compose,composePlanEnabled:()=>false,templateSelectEnabled:()=>true,
+      buildScreen:(...a)=>tpl.build(...a),RouteRequest:route.RouteRequest,OUTCOME_AGENT:route.OUTCOME_AGENT,OUTCOME_CANCELLED:route.OUTCOME_CANCELLED,
+      AgentRequest:agent.AgentRequest,appAgentHost:(status,preview,cancelled)=>Object.assign(new agentHost.AgentHost(),{status,preview,cancelled}),traceCompile:()=>{},...(({addStage,appMs,yourMs,WHO_MODEL,WHO_PHONE})=>({addStage,appMs,yourMs,WHO_MODEL,WHO_PHONE}))(load(path.join(base,'RunStages.ets'))),...(({serviceNotes,resetServiceHealth})=>({serviceNotes,resetServiceHealth}))(load(path.join(base,'ServiceHealth.ets'))),...(({toolCalls,resetToolLog})=>({toolCalls,resetToolLog}))(load(path.join(base,'ToolLog.ets'))),UI_SELECT_FULL:selection.UI_SELECT_FULL,UI_SELECT_PROMPT:selection.UI_SELECT_PROMPT,settings,deepseek:deep.deepseek,DEEPSEEK_GENERATION_MAX_TOKENS:deep.DEEPSEEK_GENERATION_MAX_TOKENS,
       GenerateRequest:llama.GenerateRequest,GenerateResult:llama.GenerateResult,compileVeraSource:compiler.compileVeraSource,CompileError:compiler.CompileError,
       repairPrompt:repairMod.repairPrompt,applyRepair:repairMod.applyRepair,smokeRun:load(path.join(base,'VeraSmoke.ets')).smokeRun,
       selectUiForPrompt:(...a)=>side.selectUi(...a),describeCatalogForPrompt:()=>'',UI_TOOL_NOTE:'',
       compositionFromJson:j=>j.length>0?{}:null,compositionToJson:()=>'EDITED-RECORD',editComposition:(...a)=>side.edit(...a),selectEdit:()=>null,
+      VersionMetrics:class{constructor(){Object.assign(this,{provider:'',model:'',elapsedMs:0,runs:0,attempts:0,inputTokens:-1,cacheHitTokens:-1,outputTokens:-1,estimatedUsd:-1,partial:false});}},
+
       engine:{stop(){},generate(request){return {text:example,inputTokens:1,outputTokens:1,request}}}};
     const mod={exports:{}};new Function('module',...Object.keys(globals),compiled.outputText)(mod,...Object.values(globals));
     const c=new mod.exports();
     const host={filesDir:'/fixture',resourceManager:{}};
     c.getUIContext=()=>({getHostContext:()=>host});
-    Object.assign(c,{questionText:'',questionOptions:[],questionFallback:0,answerQuestion:null,mode:'deepseek',attempt:1,systemPrompt:skill,uiSelected:[],grammar:'',previousSource:'',failedSource:'',
-      attempts:[],compiledVbc2:'',cancelRequested:false,completionBase:'',completionBaseVbc2:'',completionComposition:'',compositionJson:'',templateKinds:[],modelWrote:false,runId:0,prompt:'',refinePrompt:'',repairByEdit:true,genStartTime:Date.now(),generatedSource:'',generating:true});
+    Object.assign(c,{lastRequest:'',questionText:'',questionOptions:[],questionFallback:0,answerQuestion:null,mode:'deepseek',attempt:1,systemPrompt:skill,uiSelected:[],grammar:'',previousSource:'',failedSource:'',
+      attempts:[],compiledVbc2:'',cancelRequested:false,completionBase:'',completionBaseVbc2:'',completionComposition:'',compositionJson:'',templateKinds:[],modelWrote:false,runId:0,prompt:'',refinePrompt:'',repairByEdit:true,genStartTime:Date.now(),generatedSource:'',generating:true,
+      metricTotals:{runs:0,attempts:0,elapsedMs:0,inputTokens:-1,cacheHitTokens:-1,outputTokens:-1,estimatedUsd:-1,partial:false},metricRunId:-1,metricMode:'',metricModel:'',metricPriced:false,metricRates:[0,0,0],metricSeenSideCalls:new Set(),metricPendingRuns:new Set(),metricStaleRuns:new Set(),
+      requestHistory:'',pendingHistory:'',pendingRequest:'',acceptedRequest:'',acceptedComposition:'',acceptedOrigin:'',acceptedMetrics:null,compiledSource:'',totalMs:0,baseError:''});
     c.addToProgram=()=>{};c.currentRun=()=>null;c.startRun=()=>{};
     c.startAttemptOne=ask=>{c.pending=c.runAttempt(ask,'');};
     return c;
@@ -251,18 +252,18 @@ run('Parser recovery: every syntax error in one compile, without cascades',()=>{
     return {attempts:3,terminalFailure:true};
   });
   settings.hasSelectorKey=()=>true;
-  await runAsync('Generate screen ignores a stopped template run after a new Generate',async()=>{
-    reset();const c=page();let finishOld,oldCancelled;
-    tpl.build=(_p,_m,_s,isCancelled)=>{oldCancelled=isCancelled;return new Promise(r=>{finishOld=r;});};
+  await runAsync('Generate screen ignores a stopped route run after a new Generate',async()=>{
+    reset();side.compose=true;const c=page();let finishOld,oldCancelled;
+    tpl.build=(_r,host)=>{oldCancelled=host.cancelled;return new Promise(r=>{finishOld=r;});};
     c.prompt='first';c.doGenerate();c.stopGeneration();
-    tpl.build=()=>new Promise(()=>{});c.prompt='second';c.doGenerate();
+    tpl.build=()=>new Promise(()=>{});c.prompt='second';c.doGenerate();side.compose=false;
     assert.equal(oldCancelled(),true,'the stopped run sees itself cancelled');
-    finishOld(templateBuild(pipeline.BUILD_TEMPLATE,{source:'OLD'}));await settle(c);
-    assert.notEqual(c.compiledSource,'OLD');assert.equal(c.generating,true);
+    finishOld(notBuilt());await settle(c);
+    assert.equal(c.attempts.length,0,'the stopped run starts no attempt');assert.equal(c.generating,true);
     return {staleRunCancelled:true,newRunKept:true};
   });
   // A Stop followed by a new run resets cancelRequested, so each await below must see the old run as stale by its runId.
-  function stopThenGenerate(c){c.stopGeneration();tpl.build=()=>new Promise(()=>{});c.prompt='second';c.doGenerate();}
+  function stopThenGenerate(c){c.stopGeneration();c.prompt='second';c.doGenerate();}
   await runAsync('Generate screen ignores a stopped UI selection after a new Generate',async()=>{
     reset();const c=page();c.skillText=skill;c.promptTemplate=skill;let finishOld,attempts=0;
     side.selectUi=()=>new Promise(r=>{finishOld=r;});c.runAttempt=async()=>{attempts++;};
@@ -286,26 +287,6 @@ run('Parser recovery: every syntax error in one compile, without cascades',()=>{
     finishOld({applied:true,note:'n',source:'EDITED',vbc2:'v',composition:{kinds:()=>['chart']}});await old;
     assert.notEqual(c.compiledSource,'EDITED');assert.equal(c.generating,true);
     return {staleRunIgnored:true};
-  });
-  await runAsync('Generate screen keeps +model in the origin after a model refine of a completed template',async()=>{
-    reset();responses.push(example,example);const c=page();tpl.build=async()=>templateBuild(pipeline.BUILD_COMPLETE);
-    c.prompt='A list.';c.doGenerate();await settle(c);assert.equal(c.compiledSource,example);assert.equal(c.originLabel(),'list+model');
-    c.pending=null;c.refinePrompt='Change the amount to 30.';c.doRefine();await settle(c);
-    assert.equal(c.compiled,true);assert.equal(c.originLabel(),'list+model');
-    return {origin:c.originLabel()};
-  });
-  await runAsync('Generate screen fallback to the template restores its composition record',async()=>{
-    reset();responses.push('');const c=page();tpl.build=async()=>templateBuild(pipeline.BUILD_COMPLETE);
-    c.prompt='A list.';c.doGenerate();await settle(c);
-    assert.equal(c.compiledSource,'TEMPLATE');assert.equal(c.compositionJson,'{"blocks":1}');assert.equal(c.originLabel(),'list');
-    return {composition:c.compositionJson,origin:c.originLabel()};
-  });
-  await runAsync('Generate screen fallback after three failed compiles writes one gen-end',async()=>{
-    reset();traces.length=0;responses.push('function broken(','function broken(','function broken(');const c=page();
-    tpl.build=async()=>templateBuild(pipeline.BUILD_COMPLETE);c.prompt='A list.';c.doGenerate();await settle(c);
-    assert.equal(c.compiledSource,'TEMPLATE');const ends=traces.filter(t=>t.name==='gen-end');
-    assert.equal(ends.length,1);assert.equal(ends[0].fields.failure,'compile');
-    return {genEnd:ends.length};
   });
   await runAsync('Widget first candidate compiles with uniform settings',async()=>{
     reset();responses.push(example);const result=await chat.buildMiniApp(skill+widget,'An editable amount log.',()=>{});

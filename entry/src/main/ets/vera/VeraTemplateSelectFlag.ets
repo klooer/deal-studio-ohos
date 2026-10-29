@@ -1,10 +1,11 @@
 /**
- * Whether the Jev template path (VeraTemplatePipeline.ets) runs before a generation.
+ * Whether Jev answers a refine of a composed screen as a structural edit (add, remove, replace or move a block:
+ * VeraComposition.ets) before the model is asked. A new screen is not behind it: that goes through the route
+ * (agent/VeraBuildRoute.ets).
  *
- * On by default: it runs whenever there is a TypeSafe key (settings.hasSelectorKey()), and a
- * request it cannot serve falls straight through to generation from scratch. `--ps
- * veraTemplateSelect 0` at launch switches it off for that session, for comparing against plain
- * generation; `--ps veraTemplateSelect 1` is accepted and changes nothing. Sticky, unlike
+ * On by default, and it needs a TypeSafe key (settings.hasSelectorKey()). `--ps
+ * veraTemplateSelect 0` at launch switches it off for that session, for comparing against a plain
+ * model refine; `--ps veraTemplateSelect 1` is accepted and changes nothing. Sticky, unlike
  * VeraUiAb.ets's one-shot flag: once switched off it stays off for every generation in the session.
  */
 

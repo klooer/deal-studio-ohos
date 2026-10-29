@@ -145,7 +145,10 @@ function createRenderer(theme, options) {
       const card = kind === 'card' || kind === 'listgroup'
       const pad = card ? t.padCard : T.densityPad(t, style), w = Math.max(1, width - 2 * pad)
       const inner = stack([text(node.text, 'heading', w), ...children.map(c => layout(c, w, kind))], w, ['column', 'scroll'].includes(kind) ? 0 : T.densityGap(t, style))
-      return frame(inner, width, pad, pad, pad, card ? T.toneFill(t, style, t.surface) : T.containerFill(t, style), card ? t.radiusCard : 0, card ? t.line : 'none')
+      const boxed = frame(inner, width, pad, pad, pad, card ? T.toneFill(t, style, t.surface) : T.containerFill(t, style), card ? t.radiusCard : 0, card ? t.lineSoft : 'none')
+      // ArkUI's .shadow: a blurred copy of the card under it.
+      if (card && t.shadowRadius > 0) boxed.svg = `<rect width="${width}" height="${boxed.height}" rx="${t.radiusCard}" fill="#000" filter="url(#lift)"/>` + boxed.svg
+      return boxed
     }
     if (kind === 'header' || kind === 'sectionheader') {
       const pad = kind === 'header' ? t.padBase : 0, w = Math.max(1, width - 2 * pad)
@@ -202,27 +205,27 @@ function createRenderer(theme, options) {
       return {svg: svg + rect(width, y, 'none', t.radiusCard, t.line), width, height: y}
     }
     if (kind === 'numberfield') {
-      const control = t.controlHeight, gap = t.gapBase
-      const valueWidth = Math.max(1, width - 2 * (control + gap))
-      const value = text(formattedInt(node), 'heading', valueWidth, t.ink,
+      // One pill: - value + inside a single field-coloured capsule.
+      const control = t.controlHeight, pill = Math.min(width, control * 5)
+      const value = text(formattedInt(node), 'heading', Math.max(1, pill - 2 * control), t.ink,
         {family: t.metricFontFamily ?? t.fontFamily, weight: t.weightHeading})
-      const height = Math.max(control, value.height)
-      function stepButton(label, x, fill, ink, enabled) {
-        const caption = text(label, 'body', control, ink)
-        return `<g opacity="${enabled ? 1 : 0.4}" transform="translate(${x},${(height - control) / 2})">${rect(control, control, fill, control / 2)}${move(caption, (control - caption.width) / 2, (control - caption.height) / 2)}</g>`
+      function step(label, x, enabled) {
+        const caption = text(label, 'heading', control, t.primaryInk)
+        return `<g opacity="${enabled ? 1 : 0.4}" transform="translate(${x},0)">${move(caption, (control - caption.width) / 2, (control - caption.height) / 2)}</g>`
       }
-      const svg = stepButton('-', 0, t.secondaryFill, t.secondaryInk, node.enabled !== false && node.numberValue > node.minimum) +
-        move(value, control + gap + (valueWidth - value.width) / 2, (height - value.height) / 2) +
-        stepButton('+', width - control, t.primary, t.onPrimary, node.enabled !== false && node.numberValue < node.maximum)
-      const inner = stack([text(node.label, 'caption', width, t.inkSoft), {svg, width, height}], width, t.gapTight)
+      const svg = rect(pill, control, t.secondaryFill, control / 2) +
+        step('-', 0, node.enabled !== false && node.numberValue > node.minimum) +
+        move(value, (pill - value.width) / 2, (control - value.height) / 2) +
+        step('+', pill - control, node.enabled !== false && node.numberValue < node.maximum)
+      const inner = stack([text(node.label, 'caption', width, t.inkSoft), {svg, width: pill, height: control}], width, t.gapTight)
       return frame(inner, width, 0, t.gapTight, t.gapTight)
     }
-    if (kind === 'timefield' || kind === 'textfield') {
+    if (kind === 'timefield' || kind === 'textfield' || kind === 'field') {
       const label = text(node.label, 'caption', width, t.inkMuted)
       const value = kind === 'timefield' ? formattedTime(node) : node.value || node.text || ''
       const content = text(value, 'body', Math.max(1, width - t.padBase * 2))
       const height = Math.max(t.controlHeight, content.height + t.padTight * 2)
-      return stack([label, {svg: rect(width, height, t.surfaceRaised, t.radiusControl, t.lineStrong) + move(content, t.padBase, (height - content.height) / 2), width, height}], width, t.gapTight)
+      return stack([label, {svg: rect(width, height, t.fieldFill ?? t.surfaceRaised, t.radiusControl, t.fieldLine ?? t.lineStrong) + move(content, t.padBase, (height - content.height) / 2), width, height}], width, t.gapTight)
     }
     if (kind === 'sparkline') {
       const height = 260, series = node.series || [], maximum = Math.max(1, node.maximum || 0)
@@ -245,6 +248,47 @@ function createRenderer(theme, options) {
     if (kind === 'stat' || kind === 'numberstat') {
       return stack([text(node.label, 'caption', width, t.inkMuted), text(kind === 'numberstat' ? formattedInt(node) : node.text, 'metric', width, T.toneInk(t, style, t.ink)), text(node.value, 'caption', width, t.inkSoft)], width, t.gapTight)
     }
+    if (kind === 'progressring') {
+      const size = t.controlHeight * 3, r = size / 2 - 7, c = size / 2
+      const frac = Math.max(0, Math.min(1, node.eventValue / (node.maximum > 0 ? node.maximum : 100)))
+      const length = 2 * Math.PI * r, color = T.toneEdge(t, style, t.primary)
+      const centre = text(node.text || Math.round(frac * 100) + '%', 'heading', size - 36, T.toneInk(t, style, t.ink), {family: t.metricFontFamily ?? t.fontFamily, weight: t.weightMetric})
+      const ring = {svg: `<circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="${t.lineSoft}" stroke-width="12"/>` +
+        `<circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="${color}" stroke-width="12" stroke-linecap="round" stroke-dasharray="${length * frac} ${length}" transform="rotate(-90 ${c} ${c})"/>` +
+        move(centre, (size - centre.width) / 2, (size - centre.height) / 2), width: size, height: size}
+      const label = text(node.label, 'caption', width, t.inkStrong, {weight: 500})
+      const inner = stack([{svg: move(ring, (width - size) / 2, 0), width, height: size}, {svg: move(label, (width - label.width) / 2, 0), width, height: label.height}], width, t.gapTight)
+      return frame(inner, width, 0, t.gapBase, t.gapBase)
+    }
+    if (kind === 'tilegrid') {
+      const pad = t.padBase, inner = Math.max(1, width - 2 * pad), gap = t.gapLoose, half = (inner - gap) / 2
+      let svg = '', x = 0, y = 0, rowHeight = 0
+      for (const child of children) {
+        const wide = child.columns >= 2, w = wide ? inner : half
+        if (x > 0 && (wide || x + w > inner + 0.5)) { y += rowHeight + gap; x = 0; rowHeight = 0 }
+        const box = nodeBox(child, w, 'tilegrid')
+        svg += move(box, x, y); rowHeight = Math.max(rowHeight, box.height); x += w + gap
+        if (wide) { y += rowHeight + gap; x = 0; rowHeight = 0 }
+      }
+      if (x > 0) y += rowHeight
+      else y = Math.max(0, y - gap)
+      return {svg: move({svg, width: inner, height: y}, pad, 0), width, height: y + 2 * t.gapTight}
+    }
+    if (kind === 'tile') {
+      const w = Math.max(1, width - 2 * t.padCard)
+      const boxes = [text(node.label, 'caption', w, t.inkSoft, {weight: Math.max(t.weightHeading, 500)}),
+        text(node.text, 'metric', w, T.toneInk(t, style, t.ink), {weight: t.weightMetric}),
+        text(node.value, 'caption', w, t.inkSoft)]
+      return frame(stack(boxes, w, t.gapTight), width, t.padCard, t.padCard, t.padCard, T.toneFill(t, style, t.surface), t.radiusCard, t.lineSoft)
+    }
+    if (kind === 'listitem') {
+      const pad = t.padListX, w = Math.max(1, width - 2 * pad)
+      const right = text(node.value, 'body', w / 2, t.inkSoft)
+      const left = stack([text(node.text, 'body', w - right.width - t.gapBase, t.ink, {weight: t.weightHeading}), text(node.label, 'caption', w - right.width - t.gapBase, t.inkMuted)], w - right.width - t.gapBase, 2)
+      const h = Math.max(left.height, right.height, t.controlHeight)
+      const svg = move(left, 0, (h - left.height) / 2) + move(right, w - right.width, (h - right.height) / 2)
+      return {svg: move({svg, width: w, height: h}, pad, t.padTight) + `<line x1="${pad}" x2="${width - pad}" y1="${h + 2 * t.padTight}" y2="${h + 2 * t.padTight}" stroke="${t.lineSoft}"/>`, width, height: h + 2 * t.padTight + 1}
+    }
     if (kind === 'badge') {
       const content = text(node.text, 'caption', Math.max(1, width - t.padTight * 2), T.toneInk(t, style, t.ink))
       return frame(content, Math.min(width, content.width + t.padTight * 2), t.padTight, t.gapTight, t.gapTight, T.toneFill(t, style, t.secondaryFill), t.radiusSmall)
@@ -260,6 +304,12 @@ function createRenderer(theme, options) {
   return layout
 }
 
+function liftFilter(t) {
+  const c = /^#([0-9A-F]{2})([0-9A-F]{6})$/i.exec(t.shadowColor)
+  if (!c || t.shadowRadius <= 0) return ''
+  return `<defs><filter id="lift" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="${t.shadowOffsetY}" stdDeviation="${t.shadowRadius / 2}" flood-color="#${c[2]}" flood-opacity="${parseInt(c[1], 16) / 255}"/></filter></defs>`
+}
+
 async function main() {
   const args = Object.fromEntries(process.argv.slice(2).map(arg => { const at = arg.indexOf('='); return [arg.slice(2, at), arg.slice(at + 1)] }))
   const width = args.width === undefined ? 360 : Number(args.width)
@@ -273,6 +323,6 @@ async function main() {
   const layout = createRenderer(theme, {embedded: args.embedded === 'true', selectWrap: args['select-wrap'] !== 'false'})
   const box = layout(tree, width), height = Math.max(1, box.height)
   const metadata = {approximate: true, preset: theme.preset, width, dark: args.dark === 'true', embedded: args.embedded === 'true', label: args.label || ''}
-  process.stdout.write(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><title>${esc(args.label || 'Approximate Vera proof')}</title><metadata>${esc(JSON.stringify(metadata))}</metadata>${rect(width, height, theme.background)}${box.svg}</svg>\n`)
+  process.stdout.write(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><title>${esc(args.label || 'Approximate Vera proof')}</title><metadata>${esc(JSON.stringify(metadata))}</metadata>${liftFilter(theme)}${rect(width, height, theme.background)}${box.svg}</svg>\n`)
 }
 main().catch(error => { console.error(error.stack || error); process.exitCode = 1 })

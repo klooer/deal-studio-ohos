@@ -86,7 +86,7 @@ if (!baseline) {
   }
  })
  const T=loadVera('VeraTheme')
- const targets={clean:[32,40,16,24,16,16,'#F8FAFC','#2563EB'],soft:[32,40,16,24,20,24,'#FAF7F2','#6D5BD0'],expressive:[36,44,16,28,20,20,'#F7F3FF','#7C3AED'],editorial:[38,42,16,28,20,4,'#FAFAF7','#27272A'],technical:[30,36,15,20,16,8,'#F3F7F7','#0F766E'],playful:[36,44,16,28,20,24,'#FFF7F4','#BE185D']}
+ const targets={clean:[32,40,16,32,16,16,'#F8FAFC','#2563EB'],soft:[32,40,16,32,20,24,'#FAF7F2','#6D5BD0'],expressive:[36,44,16,36,20,20,'#F7F3FF','#7C3AED'],editorial:[38,42,16,36,20,4,'#FAFAF7','#27272A'],technical:[30,36,15,28,16,8,'#F3F7F7','#0F766E'],playful:[36,44,16,36,20,24,'#FFF7F4','#BE185D']}
  function luminance(hex) { return [1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255).map(c=>c<=0.04045?c/12.92:((c+0.055)/1.055)**2.4).reduce((a,c,i)=>a+c*[0.2126,0.7152,0.0722][i],0) }
  function ratio(a,b) { const x=luminance(a),y=luminance(b); return (Math.max(x,y)+0.05)/(Math.min(x,y)+0.05) }
  for(const [preset,target] of Object.entries(targets)) {
@@ -94,7 +94,7 @@ if (!baseline) {
    const t=T.resolveTheme(preset,'',false)
    assert.deepEqual([t.sizeDisplay,t.sizeMetric,t.sizeBody,t.gapSection,t.padCard,t.radiusCard,t.background,t.primary],target)
    assert.equal(t.surface,'#FFFFFF'); assert.equal(t.sizeTitle,24); assert.equal(t.sizeHeading,preset==='technical'?18:20); assert.equal(t.sizeCaption,13)
-   assert.equal(t.fontFamily,''); assert.equal(t.headingFontFamily,preset==='editorial'?'serif':''); assert.equal(t.metricFontFamily,preset==='technical'?'monospace':'')
+   assert.equal(t.fontFamily,''); assert.equal(t.headingFontFamily,{editorial:'Noto Serif'}[preset]||''); assert.equal(t.metricFontFamily,{editorial:'Noto Serif',technical:'monospace'}[preset]||'')
   })
   for(const dark of [false,true]) for(const seed of ['', '#FFFFFF','#000000','#FFCC00','#FF00FF','#00FFFF']) test(`${preset}/${dark?'dark':'light'}/${seed||'default'}: enabled color contrast`, () => {
    const t=T.resolveTheme(preset,seed,dark)
@@ -119,7 +119,7 @@ if (!baseline) {
   const probe=new Probe(); probe.t=()=>T.resolveTheme('technical','',false); probe.embedded=false
   assert.equal(probe.textFamily('metric'),'monospace'); assert.equal(probe.textFamily('body'),undefined)
   assert.equal(probe.renderTextSize('metric'),36); probe.embedded=true; assert.equal(probe.renderTextSize('metric'),32)
-  probe.t=()=>T.resolveTheme('editorial','',false); assert.equal(probe.textFamily('title'),'serif'); assert.equal(probe.renderTextSize('display'),32)
+  probe.t=()=>T.resolveTheme('editorial','',false); assert.equal(probe.textFamily('title'),'Noto Serif'); assert.equal(probe.renderTextSize('display'),32)
   for(const minimum of [-1,0,80,160,240]) {
    const min=minimum<=0?240:Math.max(160,minimum), gap=T.densityGap(probe.t(),'default')
    const node={minimum,style:'default',layoutWidth:0}; assert.equal(probe.adaptiveColumnsCount(node),1)
@@ -135,9 +135,9 @@ if (!baseline) {
    assert(renderer.includes('private darkListener: mediaquery.MediaQueryListener | null'))
    assert(renderer.includes('this.getUIContext().showTimePickerDialog({'))
    assert(renderer.includes('x: this.getUIContext().vp2px(this.canvasSide(node.style)) / 100, y: this.getUIContext().vp2px(this.canvasSide(node.style)) / 100'))
-   const names=['watchDarkMode','sparklineCommands','sparklineAreaCommands','sparklineGridCommands']
+   const names=['watchDarkMode','sparklinePoint','sparklineCommands','sparklineAreaCommands','sparklineGridCommands']
    const body=names.map(n=>declaration(renderer,'  private '+n+'(').replace('  private ','')).join('\n')+'\n'+declaration(renderer,'  aboutToDisappear(')
-   const code=ts.transpileModule('class Probe { static SPARKLINE_HEIGHT=200; '+body+' }',{compilerOptions:{target:ts.ScriptTarget.ES2020}}).outputText
+   const code=ts.transpileModule('class Probe { static SPARKLINE_HEIGHT=200; static SPARKLINE_INSET=16; '+body+' }',{compilerOptions:{target:ts.ScriptTarget.ES2020}}).outputText
    const Probe=new Function(code+'; const VeraPreview=Probe; return Probe')(), probe=new Probe(), queries=[], events=[]
    let change, renders=0, density=1
    const listener={matches:true,on(event,cb){events.push(event);change=cb},off(event){events.push('off:'+event)}}
@@ -146,11 +146,12 @@ if (!baseline) {
    probe.watchDarkMode();assert.deepEqual(queries,['(dark-mode: true)']);assert.equal(probe.dark,true);assert.equal(probe.darkListener,listener)
    change({matches:true});assert.equal(renders,0);change({matches:false});assert.equal(renders,1);assert.equal(probe.dark,false)
    for(density of [1,2,3.5]) {
-    assert.equal(probe.sparklineCommands([0,10],10,0,100),`M 0.00 ${(200*density).toFixed(2)} L ${(100*density).toFixed(2)} 0.00`)
-    assert.equal(probe.sparklineCommands([10],10,0,100),`M ${(50*density).toFixed(2)} 0.00`)
+    const low=(184*density).toFixed(2), high=(16*density).toFixed(2), x1=(25*density).toFixed(2), x2=(75*density).toFixed(2)
+    assert.equal(probe.sparklineCommands([0,10],10,0,100),`M ${x1} ${low} L ${x2} ${high}`)
+    assert.equal(probe.sparklineCommands([10],10,0,100),`M ${(50*density).toFixed(2)} ${high}`)
     assert.equal(probe.sparklineCommands([],10,0,100),'')
-    assert.equal(probe.sparklineAreaCommands([0,10],10,0,100),`M 0.00 ${(200*density).toFixed(2)} L ${(100*density).toFixed(2)} 0.00 L ${(100*density).toFixed(2)} ${(200*density).toFixed(2)} L 0.00 ${(200*density).toFixed(2)} Z`)
-    assert(probe.sparklineGridCommands(10,0,100).startsWith(`M 0 ${(200*density).toFixed(2)} L ${(100*density).toFixed(2)} ${(200*density).toFixed(2)}`))
+    assert.equal(probe.sparklineAreaCommands([0,10],10,0,100),`M ${x1} ${low} L ${x2} ${high} L ${x2} ${low} L ${x1} ${low} Z`)
+    assert(probe.sparklineGridCommands(10,0,100).startsWith(`M 0 ${high} L ${(100*density).toFixed(2)} ${high}`))
    }
    probe.aboutToDisappear();assert.equal(probe.disposed,true);assert.equal(probe.darkListener,null);assert.deepEqual(events,['change','stop','off:change'])
    change({matches:true});assert.equal(renders,1)

@@ -41,26 +41,37 @@ const CONTRACT: string = '\n\nNow you do not write a whole program. You add ONE 
   'for every other field of the state kept as it is: return {c_count: state.c_count + 1__PASSTHROUGH__};\n' +
   '- The view statements run inside view(state): they may read any state field, but the local variables of the program\'s ' +
   'other sections are not visible there.\n' +
-  '- Do not repeat, change or restyle anything the program already has. Do what the section must do, completely.\n'
+  '- Do not repeat, change or restyle anything the program already has. Do what the section must do, completely.\n' +
+  '- If the program already has a clock (Start, Stop, Reset buttons, a time shown) or a list of entries with its own Add button, ' +
+  'the section draws no clock, no Start/Stop/Reset buttons and no second list of the same entries: it works with that state and shows only what is new.\n' +
+  '- A message about an empty or wrong field (such as "Enter a task name") is shown only after the person has tried to add it, never while the field is still untouched.\n' +
+  '- Show each piece of information once: no heading and caption that say the same thing, and no second view (a table, "splits") of entries the program already lists in rows.\n'
 
 /** What <cannot> holds: it is shown to the person on the screen, in place of what could not be built. */
 const CANNOT_FORM: string = 'one short sentence for the person using the app, in plain words about their phone and its apps: ' +
   'what this app cannot do, and why. Never mention the language, the section, sdk.call or code'
 
+/** A need that cannot be done is declined on its own; the others are still written. */
+const DECLINE_RULE: string = '- When some of the needs cannot be done but others can, write the section for the ones that can and add, for each one ' +
+  'that cannot, <cannot need="the need, copied exactly">' + CANNOT_FORM + '</cannot> beside it. Answer a bare <cannot> only when none can be done.\n'
+
 /** The rule for phone calls: none, or only the targets the phone's lookups found. */
 function phoneRule(phone: string): string {
   if (phone.length === 0) {
-    return '- The section never calls sdk.call: what the phone does is not its job.\n' +
+    return DECLINE_RULE + '- The section never calls sdk.call: what the phone does is not its job.\n' +
       '- If the section cannot really do it with this language and these components -- it needs a camera, a live feed, ' +
       'the person\'s location or data the phone does not hold -- answer only <cannot>' + CANNOT_FORM + '</cannot>. Never fake it with made-up data.\n'
   }
-  return '- What the phone or another app must do, the section does with sdk.call from a handler, calling ONLY targets from ' +
+  return DECLINE_RULE + '- What the phone or another app must do, the section does with sdk.call from a handler, calling ONLY targets from ' +
     '"Phone functions found" in the request, copied exactly, with the parameters they show, values from the screen\'s state. ' +
     'Its answer handler shows what came back: an answer starting with "declined" or "error" is a failure, anything else succeeded.\n' +
     '- A function that opens another app with the action ready for the person to confirm (a message filled in, a contact ' +
     'form, a route) does the job: use it, and say on the screen that the person confirms it there.\n' +
     '- Before answering <cannot>, go through the phone functions found for each need: when one does it -- even by parts, ' +
     'such as audio samples written to a renderer, or the flashlight switched on and off -- write the section with it.\n' +
+    '- A need worded as something to do inside this app that the app cannot do (it has no such component) is not refused ' +
+    'if a function found does the nearest useful thing for the person -- shows or opens the same thing in the app made for it: ' +
+    'write the section with that function, and say in a line on the screen what it does instead.\n' +
     '- If none of the phone functions found does what is needed, or it needs something the phone cannot give a program ' +
     '(a camera, a live feed, the person\'s location), answer only <cannot>' + CANNOT_FORM + '</cannot>. Never fake it, never pretend a call happened, ' +
     'never call a target that is not listed.\n'
@@ -84,14 +95,14 @@ export function foundTargets(phone: string): string[] {
 function callProblem(reply: string, found: string[]): string {
   let calls = reply.split('sdk.call(').length - 1
   if (calls === 0) { return '' }
-  if (found.length === 0) { return 'The section calls sdk.call, which it never may: write it without phone calls, or answer <cannot>.' }
+  if (found.length === 0) { return 'The section calls sdk.call, which it never may: write it without phone calls.' }
   let literal = new RegExp('sdk\\.call\\(\\s*"([^"]+)"', 'g')
   let named = 0
   let m: RegExpExecArray | null = literal.exec(reply)
   while (m !== null) {
     named++
     if (found.indexOf(m[1]) < 0) {
-      return 'The section calls "' + m[1] + '", which is not one of the phone functions found. Call only those, copied exactly, or answer <cannot>.'
+      return 'The section calls "' + m[1] + '", which is not one of the phone functions found. Call only those, copied exactly:\n' + found.join('\n')
     }
     m = literal.exec(reply)
   }
@@ -109,6 +120,11 @@ export class CustomRequest {
   compose: (section: FragmentSpec | null) => string = (_section: FragmentSpec | null): string => ''
   /** Other things the writer is told: the fixed numbers the plan names. */
   facts: string[] = []
+  /** What the screen's own parts already hold, in words: the section uses it and makes none of its own. */
+  parts: string[] = []
+  /** The screen has a clock / a list of entries of its own: a section that makes another is asked again. */
+  ownsClock: boolean = false
+  ownsList: boolean = false
   /** The phone's functions found for the needs that are something the phone does (the lookups' answers); '' for none. */
   phone: string = ''
   /** Jev, to read a section that compiles and runs against the needs; null serves it unread. */
@@ -118,7 +134,7 @@ export class CustomRequest {
 }
 
 /** Jev reads the section against each need: a section that only says it cannot, or does something else, does not count. */
-const DOES_ABOVE: number = 0.5
+export const DOES_ABOVE: number = 0.5
 
 /** The Jev request: does the section, as written, do each need. */
 export function verifyRequest(request: CustomRequest, reply: string): string {
@@ -164,6 +180,8 @@ export class CustomResult {
   section: FragmentSpec | null = null
   /** The writer's own sentence for the person when it answered that it cannot do it; '' otherwise. */
   cannot: string = ''
+  /** Needs the writer declined one by one while writing the section for the rest, with its sentence for each. */
+  declined: Map<string, string> = new Map<string, string>()
   /** The last try was made with thinking on. */
   thought: boolean = false
   /**
@@ -183,6 +201,39 @@ function between(text: string, tag: string): string | null {
   let close = text.indexOf('</' + tag + '>')
   if (open < 0 || close < open) { return null }
   return text.substring(open + tag.length + 2, close).trim()
+}
+
+/** The needs the reply declines one by one: <cannot need="...">sentence</cannot>, only those that name a need asked. */
+export function declinedNeeds(reply: string, needs: string[]): Map<string, string> {
+  let out = new Map<string, string>()
+  let tag = new RegExp('<cannot\\s+need\\s*=\\s*"([^"]*)"\\s*>([\\s\\S]*?)</cannot>', 'g')
+  let m: RegExpExecArray | null = tag.exec(reply)
+  while (m !== null) {
+    let need = needs.find((n: string): boolean => n === m![1].trim())
+    if (need !== undefined && m[2].trim().length > 0) { out.set(need, m[2].trim()) }
+    m = tag.exec(reply)
+  }
+  return out
+}
+
+/**
+ * What the section makes again that the screen's parts already hold: its own clock or its own list of entries. '' when it makes
+ * neither. Such a section is asked for again, told to use the parts' state: two clocks or two lists on one screen are one too many.
+ */
+export function repeats(section: FragmentSpec, request: CustomRequest): string {
+  let text = section.viewBlock + '\n' + section.functions
+  if (request.ownsClock) {
+    let own = section.stateFields.some((f: StateFieldSpec): boolean => f.name.toLowerCase().indexOf('elapsed') >= 0 || f.name.toLowerCase().indexOf('running') >= 0)
+    if (own || text.indexOf('ui.Ticker(') >= 0) {
+      return 'The program already has a clock (state.elapsedMs, state.running) with its own Start, Stop and Reset buttons and Ticker. ' +
+        'Do not draw another clock, Ticker or Start/Stop/Reset buttons and do not keep elapsed or running state of your own: read state.elapsedMs.'
+    }
+  }
+  if (request.ownsList && section.stateFields.some((f: StateFieldSpec): boolean => f.type.endsWith('[]'))) {
+    return 'The program already has a list of entries, state.entries (LogEntry[]), with its own form, Add and Remove buttons and rows. ' +
+      'Do not keep a list of your own for the same entries: add to state.entries (copy it, push a LogEntry, return {entries: copy __PASSTHROUGH__}) and draw only what is new.'
+  }
+  return ''
 }
 
 /** The reply as a block, or null when it is not in the form asked for. */
@@ -254,6 +305,7 @@ export async function writeSection(request: CustomRequest, language: string, ask
   let asked = 'Request: ' + request.prompt + '\n\nThe section must do:\n- ' + request.needs.join('\n- ') +
     (request.inputs.length > 0 ? '\n\nThe person sets these on the screen and nothing else uses them yet; the section uses them:\n- ' +
       request.inputs.join('\n- ') : '') +
+    (request.parts.length > 0 ? '\n\nThe program already has these: use them, do not make your own:\n- ' + request.parts.join('\n- ') : '') +
     (request.facts.length > 0 ? '\n\nFixed numbers the app uses:\n- ' + request.facts.join('\n- ') : '') +
     (phone.length > 0 ? '\n\nPhone functions found (the only targets the section may call):\n' + phone : '') +
     (request.whole ? '\n\nThe program has nothing yet but its header: your section is the whole screen, everything the request ' +
@@ -276,15 +328,30 @@ export async function writeSection(request: CustomRequest, language: string, ask
     let section = parseSection(reply)
     // A phone call the section makes up compiles and does nothing: its targets are not checked until the phone answers.
     let calls = section === null ? '' : callProblem(reply, found)
+    // Asked for twice at most: a section that still makes its own clock or list is better than none, so it is then taken as it is.
+    let again = section === null || attempt >= 2 ? '' : repeats(section, request)
     let problem = section === null ? 'The answer was not in the form asked for: <classes>, <fields>, <functions> and <view>.' :
-      (calls.length > 0 ? calls : check(request.compose(section)))
+      (calls.length > 0 ? calls : (again.length > 0 ? again : check(request.compose(section))))
     if (problem.length === 0) {
       // It compiles and runs; whether it does what it is for is Jev's reading. One it reads as not doing a need is asked
       // for again, saying which.
-      let missed: string[] = request.verify !== null ? undone(request, await request.verify!(verifyRequest(request, reply))) : []
-      if (missed.length === 0) {
+      // A need it declined is not read against the section and not asked for again: it is reported as it said.
+      let declined = declinedNeeds(reply, request.needs)
+      let doing = request.needs.filter((n: string): boolean => !declined.has(n))
+      let unread: string[] = []
+      if (request.verify !== null && doing.length > 0) {
+        let part = new CustomRequest()
+        part.prompt = request.prompt
+        part.needs = doing
+        unread = undone(part, await request.verify!(verifyRequest(part, reply)))
+      }
+      let missed: string[] = unread.concat(request.needs.filter((n: string): boolean => declined.has(n)))
+      if (unread.length === 0) {
         result.section = section
         result.failed = ''
+        result.declined = declined
+        result.missed = missed
+        if (missed.length > 0) { result.failed = 'custom section does not do: ' + missed.join('; ') }
         break
       }
       result.failed = 'custom section does not do: ' + missed.join('; ')

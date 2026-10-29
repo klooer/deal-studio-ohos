@@ -441,6 +441,29 @@ export class UiHostEnvironment extends HostEnvironment {
       case 'Card': return containerNode('card', args)
       case 'Scroll': return containerNode('scroll', args)
       case 'Canvas': return containerNode('canvas', args)
+      case 'Transform':
+        // The pose is the one array prop (series), the glide duration rides numberValue, the side of the layer minimum (as Skeleton's width), the style says solid or not.
+        return viewNode('transform', [
+          ['style', new VeraStringValue(argString(args, 0))],
+          ['series', argArray(args, 1)],
+          ['numberValue', new VeraNumberValue(argNum(args, 2))],
+          ['minimum', new VeraNumberValue(argNum(args, 3))],
+          ['children', argArray(args, 4)],
+        ])
+      case 'Stage':
+        return viewNode('stage', [
+          ['style', new VeraStringValue(argString(args, 0))],
+          ['numberValue', new VeraNumberValue(argNum(args, 1))],
+          ['minimum', new VeraNumberValue(argNum(args, 2))],
+          ['children', argArray(args, 3)],
+        ])
+      case 'Motion':
+        // The preset is the style; the trigger rides numberValue, as other components reuse an existing field.
+        return viewNode('motion', [
+          ['style', new VeraStringValue(argString(args, 0))],
+          ['numberValue', new VeraNumberValue(argNum(args, 1))],
+          ['children', argArray(args, 2)],
+        ])
       case 'Text':
         return viewNode('text', [
           ['style', new VeraStringValue(argString(args, 0))],
@@ -545,6 +568,14 @@ export class UiHostEnvironment extends HostEnvironment {
           ['value', new VeraNumberValue(argNum(args, 2))],
           ['maximum', new VeraNumberValue(argNum(args, 3))],
         ])
+      case 'ProgressRing':
+        return viewNode('progressring', [
+          ['style', new VeraStringValue(argString(args, 0))],
+          ['label', new VeraStringValue(argString(args, 1))],
+          ['value', new VeraNumberValue(argNum(args, 2))],
+          ['maximum', new VeraNumberValue(argNum(args, 3))],
+          ['text', new VeraStringValue(argString(args, 4))],
+        ])
       case 'Button':
         return viewNode('button', [
           ['style', new VeraStringValue(argString(args, 0))],
@@ -642,6 +673,20 @@ export class UiHostEnvironment extends HostEnvironment {
           ['text', new VeraStringValue(argString(args, 2))],
           ['value', new VeraStringValue(argString(args, 3))],
           ['icon', new VeraStringValue(argString(args, 4))],
+        ])
+      case 'TileGrid':
+        return viewNode('tilegrid', [
+          ['style', new VeraStringValue(argString(args, 0))],
+          ['children', argArray(args, 1)],
+        ])
+      case 'Tile':
+        return viewNode('tile', [
+          ['style', new VeraStringValue(argString(args, 0))],
+          ['columns', new VeraNumberValue(argNum(args, 1))],
+          ['label', new VeraStringValue(argString(args, 2))],
+          ['text', new VeraStringValue(argString(args, 3))],
+          ['value', new VeraStringValue(argString(args, 4))],
+          ['icon', new VeraStringValue(argString(args, 5))],
         ])
       case 'MetricGroup':
         return viewNode('metricgroup', [

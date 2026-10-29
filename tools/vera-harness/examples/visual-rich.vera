@@ -1,0 +1,19 @@
+import * as ui from "std/ui"
+@jsonable class AppState { steps: number; }
+function init(): AppState { return {steps: 8420}; }
+function add(state: AppState, value: number): AppState { return {steps: state.steps + value}; }
+function note(state: AppState, value: string): AppState { return state; }
+function view(state: AppState): ui.View { return ui.AppTheme("clean", "", [
+  ui.Hero("plain", "TODAY", "Stay on your feet", "A calm look at the day", [ui.NumberText("metric", state.steps, "", " steps", 1)]),
+  ui.MetricGroup("default", 3, [ui.Stat("default", "Calories", "420", "kcal", "star"), ui.Stat("default", "Minutes", "56", "min", "clock"), ui.Stat("default", "Distance", "6", "km", "pin")]),
+  ui.Section("content", "Recent", "Last three walks", [ui.ListGroup("default", "", [
+    ui.ListItem("default", "Morning loop", "Park and back", "3.2 km", "add", 100, true, "pin"),
+    ui.ListItem("success", "Lunch walk", "Goal reached", "2.1 km", "add", 100, true, "check"),
+    ui.ListItem("warning", "Evening stroll", "Cut short", "0.9 km", "add", 100, true, "clock")])]),
+  ui.Section("content", "Goals", "", [
+    ui.ProgressRing("default", "Daily goal", 8, 10, "8 of 10"),
+    ui.TileGrid("default", [ui.Tile("accent", 2, "Steps", "8,420", "84% of goal", "star"), ui.Tile("default", 1, "Active", "56 min", "", "clock"), ui.Tile("default", 1, "Distance", "6 km", "", "pin")])]),
+  ui.Section("content", "Log", "", [ui.TextField("default", "Note", "", "note"), ui.NumberField("default", "Minutes", 30, 0, 120, "add")]),
+  ui.Card("default", [ui.Badge("success", "On track"), ui.Sparkline("accent", [30, 55, 42, 70, 64], 100, "Weekly steps", true)]),
+  ui.ActionBar("default", [ui.Button("secondary", "Skip", "add", -100, true), ui.Button("primary", "Log walk", "add", 500, true)])
+]); }

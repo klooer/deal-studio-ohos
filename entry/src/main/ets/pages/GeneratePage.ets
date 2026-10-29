@@ -3,7 +3,7 @@ import { KeyboardAvoidMode } from '@ohos.arkui.UIContext'
 import fs from '@ohos.file.fs'
 import http from '@ohos.net.http'
 import request from '@ohos.request'
-import { store } from '../vera/ProjectStore'
+import { Version, VersionMetrics, store } from '../vera/ProjectStore'
 import { refreshForms } from '../vera/FormUpdater'
 import { engine, LlamaEngine, GenerateRequest, GenerateResult, loadRawfileText } from '../vera/LlamaEngine'
 import { compileVeraSource, CompileError } from '../vera/VeraCompiler'
@@ -28,25 +28,22 @@ import { uiAbRequested, runUiAb } from '../vera/VeraUiAb'
 import { selectUiForPrompt, UI_SELECT_FULL, UI_SELECT_PROMPT, UI_TOOL_NOTE } from '../vera/VeraUiSelect'
 import { sdkEvalRequested, runSdkEval } from '../vera/VeraSdkEval'
 import { composeEnabled, ComposeResult } from '../vera/VeraCompose'
-import { TemplateBuild, BUILD_COMPLETE, BUILD_TEMPLATE } from '../vera/VeraTemplatePipeline'
 import { AgentRequest, AgentResult } from '../vera/agent/VeraAgent'
 import { appAgentHost } from '../vera/agent/AgentAppHost'
-import { AgentQuestion } from '../vera/agent/AgentQuestions'
+import { AgentQuestion, PersonAnswer } from '../vera/agent/AgentQuestions'
 import { QuestionCard } from '../components/QuestionCard'
-import { buildScreen, RouteRequest, RouteOutcome, OUTCOME_AGENT, OUTCOME_TEMPLATE, OUTCOME_COMPLETE, OUTCOME_CANCELLED } from '../vera/agent/VeraBuildRoute'
+import { MetricCard, MetricTile, MetricChip, MetricLine } from '../components/MetricCard'
+import { buildScreen, RouteRequest, RouteOutcome, OUTCOME_AGENT, OUTCOME_CANCELLED } from '../vera/agent/VeraBuildRoute'
 import { templateSelectEnabled } from '../vera/VeraTemplateSelectFlag'
-import { RouteInfo, routeLabel, routeShort, jevLabel, checkLabel, checkShort, routeWhy, ROUTE_BLOCKS, ROUTE_BLOCKS_MODEL, CHECK_CONFIRMED, CHECK_REJECTED, CHECK_FAILED, CHECK_NONE } from '../vera/VeraRoute'
+import { ToolCall, ToolTotal, toolCalls, resetToolLog, toolTotals, toolMs } from '../vera/ToolLog'
+import { ServiceNote, serviceNotes, resetServiceHealth, describeService, silent } from '../vera/ServiceHealth'
+import { Stage, addStage, appMs, yourMs, byWho, WHO_MODEL, WHO_JEV, WHO_SEARCH, WHO_PHONE, WHO_YOU } from '../vera/RunStages'
 import { compositionFromJson, compositionToJson, editComposition, selectEdit, Composition, CompositionEdit, EditResult } from '../vera/VeraComposition'
 
 /** How the system prompt picks the std/ui components it describes: 'full', 'phrases' or 'prompt' (VeraUiSelect.ets). */
 const UI_SELECT_MODE: string = UI_SELECT_PROMPT
 const MAX_RETRIES: number = 3
 
-// Appended to the request when the program above is a composed template, not the model's own earlier work.
-const COMPLETION_NOTE: string = '\n\nThe program above is a ready-made screen chosen for this request. ' +
-  'Keep its layout, theme and structure. Edit it so that everything the request asks for works: replace placeholder ' +
-  'text with real content, and add the state, buttons, inputs and calculations the request needs. ' +
-  'Return the complete program as source only.'
 // vera-server's address is not written down here. It lives in settings, given
 // the same way as the API key -- `--ps veraServer http://host:port` -- because
 // one person's machine address has no business in a shared repository.
@@ -217,6 +214,10 @@ struct GeneratePage {
   @State projectId: string = ''
   @State baseVersionId: string = ''
   @State prompt: string = ''
+  @State requestHistory: string = ''
+  @State baseVersionNumber: number = 0
+  @State nextVersionNumber: number = 1
+  @State baseError: string = ''
   @State generatedSource: string = ''
   @State status: string = ''
   @State generating: boolean = false
@@ -233,7 +234,7 @@ struct GeneratePage {
   @State compileErrors: string = ''
   /**
    * Experiment only (experiment/jev-template-select branch): what
-   * the blocks (noteBlocks) decided for the most recent attempt, regardless of
+   * the last structural edit decided (tryStructuralEdit), regardless of
    * outcome -- mirrors ChatMessage.templatePick (ChatPage.ets), which this
    * page lacked until it became clear hilog's ring buffer and the transient
    * `status` line (overwritten by the next phase) left no way to check
@@ -242,14 +243,18 @@ struct GeneratePage {
    * against the current one.
    */
   @State lastTemplatePick: string = ''
-  /** Which way the request went (VeraRoute.ets): shown under the status line and on the Metrics tab. */
-  @State routeInfo: RouteInfo = new RouteInfo()
-  @State routeKnown: boolean = false
-  @State routeVerifyMs: number = 0
-  /** Set when the model's step failed and the blocks are shown without it. */
-  @State routeFallback: string = ''
   /** The small model calls of this run (text for blocks, function bodies, second opinion, UI choice), for the Metrics tab. */
   @State sideCalls: SideCall[] = []
+  /** Where the time of this run went, stage by stage (RunStages.ets): the Metrics tab's first card. */
+  @State stages: Stage[] = []
+  /** Which of Jev, Exa and DeepSeek answered in this run and which did not: the Metrics tab's last card. */
+  @State services: ServiceNote[] = []
+  /** The lookups of this run (find_sdk_function, find_intent_function, find_ui_component, web_search), for the Metrics tab. */
+  @State tools: ToolCall[] = []
+  /** Whether the tool calls card shows every call or only its total: closed until tapped. */
+  @State toolsOpen: boolean = false
+  /** The Metrics pane's real width, measured: a percentage inside the Scroll resolves against a wider box than the one drawn. */
+  @State metricsWidth: number = 0
   @State compiledVbc2: string = ''
   /**
    * A picture of the screen drawn from the composer's sketch while the real program is still on its way:
@@ -262,8 +267,8 @@ struct GeneratePage {
   @State questionText: string = ''
   @State questionOptions: string[] = []
   @State questionFallback: number = 0
-  /** Answers the open question: an index, or null for its default. */
-  private answerQuestion: ((index: number | null) => void) | null = null
+  /** Answers the open question: an index, the person's own words, or null for its default. */
+  private answerQuestion: ((answer: PersonAnswer) => void) | null = null
   @State compiledSource: string = ''
   @State refinePrompt: string = ''
   @State program: RunTotals = new RunTotals()
@@ -276,11 +281,6 @@ struct GeneratePage {
   @State tab: string = TAB_PREVIEW
   @State attempts: AttemptMetrics[] = []
   @State totalMs: number = 0
-  @State fastPathRan: boolean = false
-  @State fastJevMs: number = 0
-  /** -1 means grounding wasn't needed this run -- distinct from a genuinely instant search. */
-  @State fastSearchMs: number = -1
-  @State fastContentMs: number = 0
   private systemPrompt: string = ''
   /** The skill with std/ui spliced in. */
   private promptTemplate: string = ''
@@ -292,12 +292,6 @@ struct GeneratePage {
   private previousSource: string = ''
   /** The next repair asks for SEARCH/REPLACE edits (VeraRepair); false after edits failed to apply. */
   private repairByEdit: boolean = true
-  /**
-   * A composed template that still needs its logic written (SectionPickOutcome.needsLogic). While set,
-   * every attempt edits this program instead of writing one from scratch, and a failed last attempt
-   * falls back to it as it stands. Cleared when a new generation starts.
-   */
-  private completionBase: string = ''
   /** The section kinds of the last composed screen, kept with a saved version as its origin; empty after a scratch run. */
   private templateKinds: string[] = []
   /**
@@ -306,9 +300,6 @@ struct GeneratePage {
    * Empty after a scratch or model-finished program.
    */
   private compositionJson: string = ''
-  private completionBaseVbc2: string = ''
-  /** The composition record of completionBase, restored with it when the model cannot finish the template. */
-  private completionComposition: string = ''
   /** True once a model-written program compiled in this generation; the saved origin then says "+model". */
   private modelWrote: boolean = false
   /** Bumped by every Generate, refine and Stop, so a run that was stopped knows it is stale when a new one resets cancelRequested. */
@@ -318,6 +309,174 @@ struct GeneratePage {
   private lastRequest: string = ''
   private failedSource: string = ''
   private serverBytecode: string = ''
+  private pendingHistory: string = ''
+  private pendingRequest: string = ''
+  private acceptedRequest: string = ''
+  private acceptedComposition: string = ''
+  private acceptedOrigin: string = ''
+  private acceptedMetrics: VersionMetrics | null = null
+  private metricTotals: VersionMetrics = new VersionMetrics()
+  private metricRunId: number = -1
+  private metricMode: string = ''
+  private metricModel: string = ''
+  private metricPriced: boolean = false
+  private metricRates: number[] = []
+  private metricSeenSideCalls: Set<SideCall> = new Set<SideCall>()
+  private metricPendingRuns: Set<number> = new Set<number>()
+  private metricStaleRuns: Set<number> = new Set<number>()
+
+  private prepareRequest(ask: string): void {
+    this.finishMetrics(this.runId)
+    this.pendingRequest = ask
+    this.pendingHistory = this.requestHistory.length > 0 ?
+      this.requestHistory + '\n\nRefinement:\n' + ask : ask
+    this.metricRunId = this.runId + 1
+    this.metricMode = this.mode
+    this.metricModel = this.mode === MODE_DEEPSEEK ? settings.getModel() :
+      (this.mode === MODE_LOCAL ? 'qwen2.5-coder-3b-instruct-q4_k_m' : '')
+    this.metricPriced = this.mode === MODE_DEEPSEEK && this.metricModel === 'deepseek-flash' &&
+      settings.getBaseUrl().replace(/\/+$/, '') === 'https://api.deepseek.com'
+    this.metricRates = [this.ratePerMillion('cache'), this.ratePerMillion('fresh'), this.ratePerMillion('output')]
+    this.metricSeenSideCalls = new Set<SideCall>(deepseek.getSideCalls())
+    let totals = this.metricTotals
+    if (totals.runs === 0) {
+      totals.provider = this.modeLabel()
+      totals.model = this.metricModel
+    } else {
+      if (totals.provider !== this.modeLabel()) { totals.provider = 'Mixed' }
+      if (totals.model !== this.metricModel) { totals.model = 'Mixed' }
+    }
+    totals.runs++
+    if (!this.metricPriced) { totals.partial = true }
+  }
+
+  private measuredTotal(total: number, value: number): number {
+    return value < 0 ? total : Math.max(0, total) + value
+  }
+
+  private addMetricUsage(input: number, cached: number, output: number, priced: boolean): void {
+    let totals = this.metricTotals
+    totals.inputTokens = this.measuredTotal(totals.inputTokens, input)
+    totals.cacheHitTokens = this.measuredTotal(totals.cacheHitTokens, cached)
+    totals.outputTokens = this.measuredTotal(totals.outputTokens, output)
+    if (priced && input >= 0 && cached >= 0 && output >= 0) {
+      let usd = (cached * this.metricRates[0] + Math.max(0, input - cached) * this.metricRates[1] +
+        output * this.metricRates[2]) / 1000000
+      totals.estimatedUsd = this.measuredTotal(totals.estimatedUsd, usd)
+    } else {
+      totals.partial = true
+    }
+    if (input < 0 || cached < 0 || output < 0) { totals.partial = true }
+  }
+
+  private async metricWork<T>(run: number, work: () => Promise<T>): Promise<T> {
+    this.metricPendingRuns.add(run)
+    try {
+      return await work()
+    } finally {
+      this.metricPendingRuns.delete(run)
+      if (this.metricStaleRuns.delete(run) && this.metricRunId >= 0) {
+        this.metricSeenSideCalls = new Set<SideCall>(deepseek.getSideCalls())
+        this.metricTotals.partial = true
+      }
+    }
+  }
+
+  private collectMetricSideCalls(run: number): void {
+    if (this.metricRunId !== run || this.metricMode === MODE_SERVER) { return }
+    if (this.metricStaleRuns.size > 0) {
+      this.metricTotals.partial = true
+      return
+    }
+    for (let call of deepseek.getSideCalls()) {
+      if (this.metricSeenSideCalls.has(call)) { continue }
+      this.metricSeenSideCalls.add(call)
+      if (!call.ok || (call.inputTokens === 0 && call.outputTokens === 0)) {
+        this.metricTotals.partial = true
+        continue
+      }
+      this.addMetricUsage(call.inputTokens, call.cachedTokens, call.outputTokens, this.metricPriced)
+    }
+  }
+
+  private beginMetricAttempt(run: number): void {
+    if (this.metricRunId === run) { this.metricTotals.attempts++ }
+  }
+
+  private recordMetricResult(run: number, result: GenerateResult): void {
+    if (this.metricRunId !== run) { return }
+    let known = result.inputTokens > 0 || result.outputTokens > 0
+    let completeCache = this.metricMode === MODE_DEEPSEEK && deepseek.lastToolRounds() === 0 &&
+      this.metricStaleRuns.size === 0
+    let cached = completeCache && known ? deepseek.lastCacheHitTokens() : -1
+    this.addMetricUsage(known ? result.inputTokens : -1, cached,
+      known ? result.outputTokens : -1, this.metricPriced && completeCache)
+    this.collectMetricSideCalls(run)
+  }
+
+  private finishMetrics(run: number): void {
+    if (this.metricRunId !== run) { return }
+    this.collectMetricSideCalls(run)
+    this.metricTotals.elapsedMs += Math.max(0, Date.now() - this.genStartTime)
+    this.metricRunId = -1
+  }
+
+  private copyMetrics(metrics: VersionMetrics): VersionMetrics {
+    let copy = new VersionMetrics()
+    copy.provider = metrics.provider
+    copy.model = metrics.model
+    copy.elapsedMs = metrics.elapsedMs
+    copy.runs = metrics.runs
+    copy.attempts = metrics.attempts
+    copy.inputTokens = metrics.inputTokens
+    copy.cacheHitTokens = metrics.cacheHitTokens
+    copy.outputTokens = metrics.outputTokens
+    copy.estimatedUsd = metrics.estimatedUsd
+    copy.partial = metrics.partial
+    return copy
+  }
+
+  private acceptRequest(): void {
+    this.requestHistory = this.pendingHistory
+    this.acceptedRequest = this.pendingRequest
+    this.acceptedComposition = this.compositionJson
+    this.acceptedOrigin = this.originLabel()
+    this.totalMs = Math.max(0, Date.now() - this.genStartTime)
+    this.finishMetrics(this.runId)
+    this.acceptedMetrics = this.copyMetrics(this.metricTotals)
+  }
+
+  private startNew(): void {
+    this.baseVersionId = ''
+    this.baseVersionNumber = 0
+    this.baseError = ''
+    this.previousSource = ''
+    this.requestHistory = ''
+    this.pendingHistory = ''
+    this.pendingRequest = ''
+    this.acceptedRequest = ''
+    this.acceptedComposition = ''
+    this.acceptedOrigin = ''
+    this.acceptedMetrics = null
+    this.metricTotals = new VersionMetrics()
+    this.metricRunId = -1
+    this.metricSeenSideCalls = new Set<SideCall>()
+    this.compiledSource = ''
+    this.compiledVbc2 = ''
+    this.generatedSource = ''
+    this.compositionJson = ''
+    this.templateKinds = []
+    this.modelWrote = false
+    this.previewVbc2 = ''
+    this.previewNote = ''
+    this.compiled = false
+    this.compileErrors = ''
+    this.prompt = ''
+    this.refinePrompt = ''
+    this.lastRequest = ''
+    this.composerOpen = true
+    this.nextVersionNumber = store.listVersions(this.projectId).length + 1
+  }
 
   private hostContext(): common.Context {
     let context = this.getUIContext().getHostContext()
@@ -334,14 +493,24 @@ struct GeneratePage {
       this.projectId = params['projectId'] || ''
       this.baseVersionId = params['baseVersionId'] || ''
     }
+    let context = this.hostContext()
+    store.init(context.filesDir)
+    let versions = store.listVersions(this.projectId)
+    this.nextVersionNumber = versions.length + 1
     if (this.baseVersionId.length > 0) {
       let v = store.getVersion(this.projectId, this.baseVersionId)
-      if (v !== null) {
-        this.previousSource = v!.source
-        this.compositionJson = v!.composition
+      let index = versions.findIndex((version: Version): boolean => version.id === this.baseVersionId)
+      if (v !== null && v.source.length > 0 && index >= 0) {
+        this.baseVersionNumber = versions.length - index
+        this.previousSource = v.source
+        this.requestHistory = v.prompt
+        this.compositionJson = v.composition
+        this.templateKinds = v.origin.replace('+model', '').split(',').filter((kind: string): boolean => kind.length > 0)
+        this.modelWrote = v.origin.endsWith('+model')
+      } else {
+        this.baseError = 'The selected version is unavailable or has no source. Return to the version list.'
       }
     }
-    let context = this.hostContext()
     settings.init(context.filesDir)
     this.selectedModel = settings.getModel()
     initTrace(context.filesDir)
@@ -547,7 +716,8 @@ struct GeneratePage {
   }
 
   private doGenerate(): void {
-    if (this.prompt.trim().length === 0) { return }
+    if (this.prompt.trim().length === 0 || this.baseError.length > 0 || this.generating) { return }
+    if (this.compiledSource.length > 0) { this.previousSource = this.compiledSource }
     if (this.mode === MODE_SERVER) {
       if (!settings.hasServerUrl()) { this.checkServer(); return }
       this.doServerGenerate()
@@ -558,6 +728,7 @@ struct GeneratePage {
       return
     }
     if (this.mode === MODE_LOCAL && !this.modelReady) { return }
+    this.prepareRequest(this.prompt.trim())
     this.generating = true
     this.generatedSource = ''
     this.compiled = false
@@ -565,30 +736,25 @@ struct GeneratePage {
     this.attempt = 1
     this.attempts = []
     this.totalMs = 0
-    this.fastPathRan = false
-    this.fastJevMs = 0
-    this.fastSearchMs = -1
-    this.fastContentMs = 0
-    this.routeKnown = false
-    this.routeVerifyMs = 0
-    this.routeFallback = ''
     this.sideCalls = []
+    this.stages = []
+    this.services = []
+    resetServiceHealth()
+    this.tools = []
+    resetToolLog()
     this.serverBytecode = ''
-    this.compiledVbc2 = ''
-    this.compiledSource = ''
     this.previewVbc2 = ''
     this.previewNote = ''
     this.settleQuestion(null)
     this.cancelRequested = false
     this.failedSource = ''
     this.lastTemplatePick = ''
-    this.completionBase = ''
-    this.completionBaseVbc2 = ''
-    this.completionComposition = ''
-    this.modelWrote = false
+    if (this.previousSource.length === 0) {
+      this.modelWrote = false
+      this.templateKinds = []
+      this.compositionJson = ''
+    }
     this.runId++
-    this.templateKinds = []
-    this.compositionJson = ''
     this.program = new RunTotals()
     this.delta = new SourceDelta()
     this.runs = []
@@ -597,6 +763,11 @@ struct GeneratePage {
     logMark('gen-start', 'chars=' + this.prompt.trim().length.toString())
     deepseek.clearSideCalls()
     this.sideCalls = []
+    this.stages = []
+    this.services = []
+    resetServiceHealth()
+    this.tools = []
+    resetToolLog()
     let startFields: Record<string, Object> = {}
     startFields['prompt'] = this.prompt.trim()
     startFields['refining'] = this.previousSource.length > 0
@@ -608,8 +779,8 @@ struct GeneratePage {
     // itself, mid-generation, the first time either is worth calling.
     // JevSelector.ets is unchanged and still callable; nothing here calls it.
     this.status = 'Generating (attempt 1/' + MAX_RETRIES + ')...'
-    // A new screen goes through the route (agent/VeraBuildRoute.ets): the agent and the blocks in the route's
-    // order; what neither builds is reported as not built, not generated.
+    // A new screen goes through the route (agent/VeraBuildRoute.ets): the agent, then the whole screen as one hole; what
+    // neither builds comes back as not built, and the model then writes the whole program.
     // Not on top of a saved program: with previousSource set this is a change to it (the model edits it).
     let route = new RouteRequest()
     route.mode = this.mode
@@ -618,9 +789,8 @@ struct GeneratePage {
         route.agent = new AgentRequest()
         route.agent.prompt = this.prompt.trim()
       }
-      if (templateSelectEnabled()) { route.blocksPrompt = this.prompt.trim() }
     }
-    if (route.agent !== null || route.blocksPrompt.length > 0) {
+    if (route.agent !== null) {
       this.tryRoute(this.prompt.trim(), route)
       return
     }
@@ -629,31 +799,26 @@ struct GeneratePage {
 
   private async tryRoute(userPrompt: string, route: RouteRequest): Promise<void> {
     let run = this.runId
+    this.metricTotals.partial = true
     let host = appAgentHost((s: string): void => { if (run === this.runId) { this.status = s } }, (vbc2: string): void => {
       if (run !== this.runId || this.cancelRequested) { return }
       this.previewVbc2 = vbc2
       this.previewNote = 'Sketching the screen...'
     }, (): boolean => run !== this.runId || this.cancelRequested, this.promptTemplate)
-    host.ask = (question: AgentQuestion): Promise<number | null> => this.askPerson(question)
-    let outcome: RouteOutcome = await buildScreen(route, host)
-    if (run !== this.runId || outcome.kind === OUTCOME_CANCELLED) { return }
-    if (outcome.agent !== null) { this.traceAgent(outcome.agent!) }
-    if (outcome.blocks !== null) { this.noteBlocks(outcome.blocks!) }
+    host.ask = (question: AgentQuestion): Promise<PersonAnswer> => this.askPerson(question)
+    let outcome: RouteOutcome = await this.metricWork(run, (): Promise<RouteOutcome> => buildScreen(route, host))
+    if (run !== this.runId) { return }
+    if (outcome.kind === OUTCOME_CANCELLED) {
+      this.metricTotals.partial = true
+      this.finishMetrics(run)
+      return
+    }
+    if (outcome.agent !== null) {
+      this.traceAgent(outcome.agent!)
+      this.stages = outcome.agent!.stages.slice()
+    }
     if (outcome.kind === OUTCOME_AGENT) {
       this.showAgent(outcome.agent!)
-      return
-    }
-    if (outcome.kind === OUTCOME_TEMPLATE) {
-      this.showTemplate(outcome.blocks!)
-      return
-    }
-    if (outcome.kind === OUTCOME_COMPLETE) {
-      let build: TemplateBuild = outcome.blocks!
-      this.completionBase = build.source
-      this.completionBaseVbc2 = build.vbc2
-      this.completionComposition = build.composition
-      this.status = build.status
-      this.startAttemptOne(userPrompt, 'Completing template')
       return
     }
     // Nothing built it: no generation from scratch, the reason is shown, to be seen and fixed.
@@ -662,6 +827,7 @@ struct GeneratePage {
     this.status = 'Not built (' + (this.totalMs / 1000).toFixed(1) + ' s): ' + outcome.reason
     if (this.previewVbc2.length > 0) { this.previewNote = 'Preview from the sketch only — the app was not built' }
     this.traceEnd('not built: ' + outcome.reason)
+    this.finishMetrics(run)
   }
 
   private traceAgent(result: AgentResult): void {
@@ -687,57 +853,31 @@ struct GeneratePage {
     this.generatedSource = result.source
     this.compiledSource = result.source
     this.compiledVbc2 = result.vbc2
+    this.acceptRequest()
+    // The record of the screen, when it rebuilds exactly this program: a request to add, remove or move a section is then
+    // answered without the model (tryStructuralEdit); with none, such a request is refined by the model as before.
+    this.compositionJson = result.record !== null ? compositionToJson(result.record!) : ''
+    if (result.record !== null) { this.templateKinds = result.record!.kinds() }
     this.compiled = true
     this.compileErrors = ''
     this.composerOpen = false
     this.tab = TAB_PREVIEW
     this.generating = false
     this.totalMs = Date.now() - this.genStartTime
-    this.status = 'Composed in ' + (this.totalMs / 1000).toFixed(1) + ' s (sketch ' + (composed.sketchMs / 1000).toFixed(1) +
-      ' s, Jev ' + (composed.jevMs / 1000).toFixed(1) + ' s), no generation' +
+    // The time the person took to answer a question of the plan is theirs: said apart, not counted as the app's.
+    let waited = result.waitedMs()
+    this.status = 'Composed in ' + ((this.totalMs - waited) / 1000).toFixed(1) + ' s' +
+      (waited > 0 ? ' (and ' + (waited / 1000).toFixed(1) + ' s waiting for your answer)' : '') + ' (sketch ' +
+      (composed.sketchMs / 1000).toFixed(1) + ' s, Jev ' + (composed.jevMs / 1000).toFixed(1) + ' s), no generation' +
       (composed.dropped.length > 0 ? '. Left out: ' + composed.dropped.join('; ') : '')
     let endFields: Record<string, Object> = {}
     endFields['ok'] = true
     endFields['attempt'] = 0
     endFields['totalMs'] = this.totalMs
+    endFields['waitedMs'] = waited
     endFields['via'] = 'compose'
     trace('gen-end', endFields)
-  }
-
-  /** What the blocks (VeraTemplatePipeline.ets) answered, for the route rows and the Metrics tab, whichever way the request went. */
-  private noteBlocks(build: TemplateBuild): void {
-    this.fastJevMs = build.jevMs
-    this.fastPathRan = true
-    this.fastSearchMs = build.searchMs
-    this.fastContentMs = build.contentMs
-    this.routeInfo = build.route
-    this.routeKnown = true
-    this.routeVerifyMs = build.verifyMs
-    this.sideCalls = deepseek.getSideCalls()
-    this.lastTemplatePick = build.note
-    if (build.action === BUILD_COMPLETE || build.action === BUILD_TEMPLATE) { this.templateKinds = build.kinds }
-  }
-
-  /** A screen composed from blocks that compiles, runs and is judged to cover the request: the result as it is. */
-  private showTemplate(build: TemplateBuild): void {
-    this.generatedSource = build.source
-    this.compiledVbc2 = build.vbc2
-    this.compiledSource = build.source
-    this.compositionJson = build.composition
-    this.composerOpen = false
-    this.tab = TAB_PREVIEW
-    this.compiled = true
-    this.compileErrors = ''
-    this.generating = false
-    this.totalMs = Date.now() - this.genStartTime
-    this.status = build.status
-    // The trace's closing event for a screen composed from blocks with no model call; tools/vera-bench waits for it.
-    let templateEnd: Record<string, Object> = {}
-    templateEnd['ok'] = true
-    templateEnd['attempt'] = 0
-    templateEnd['totalMs'] = this.totalMs
-    templateEnd['outcome'] = 'template'
-    trace('gen-end', templateEnd)
+    this.closeRun(true, 0)
   }
 
   /**
@@ -754,7 +894,8 @@ struct GeneratePage {
     if (UI_SELECT_MODE !== UI_SELECT_FULL && this.mode === MODE_DEEPSEEK && this.skillText.length > 0) {
       this.status = 'Choosing UI components...'
       let selectStartedAt = Date.now()
-      let selected = await selectUiForPrompt(UI_SELECT_MODE, userPrompt, this.previousSource)
+      let selected = await this.metricWork(run,
+        (): Promise<Set<string> | null> => selectUiForPrompt(UI_SELECT_MODE, userPrompt, this.previousSource))
       logStep('ui-select', selectStartedAt, 'mode=' + UI_SELECT_MODE)
       if (run !== this.runId || this.cancelRequested) { return }
       if (selected === null) {
@@ -777,47 +918,50 @@ struct GeneratePage {
       }
     }
     this.status = label + ' (attempt 1/' + MAX_RETRIES + ')...'
-    this.runAttempt(plan.length > 0 ? userPrompt + '\n\n' + plan : userPrompt, '')
+    let contextPrompt = this.requestHistory.length > 0 ?
+      'Version request history:\n' + this.requestHistory + '\n\nCurrent change request:\n' + userPrompt : userPrompt
+    this.runAttempt(plan.length > 0 ? contextPrompt + '\n\n' + plan : contextPrompt, '')
   }
 
-  private async doServerGenerate(): Promise<void> {
+  private async doServerGenerate(ask: string = ''): Promise<void> {
+    let submitted = ask.length > 0 ? ask : this.prompt.trim()
+    this.prepareRequest(submitted)
+    this.cancelRequested = false
+    let run = ++this.runId
     this.generating = true
     this.generatedSource = ''
     this.compiled = false
     this.compileErrors = ''
     this.attempts = []
     this.totalMs = 0
-    this.fastPathRan = false
-    this.fastJevMs = 0
-    this.fastSearchMs = -1
-    this.fastContentMs = 0
-    this.routeKnown = false
-    this.routeVerifyMs = 0
-    this.routeFallback = ''
     this.sideCalls = []
+    this.stages = []
+    this.services = []
+    resetServiceHealth()
+    this.tools = []
+    resetToolLog()
     this.serverBytecode = ''
-    this.compiledVbc2 = ''
-    this.compiledSource = ''
     this.program = new RunTotals()
     this.delta = new SourceDelta()
     this.runs = []
-    this.startRun(this.prompt.trim())
+    this.startRun(submitted)
     this.genStartTime = Date.now()
-    this.lastRequest = this.prompt.trim()
+    this.lastRequest = submitted
     this.status = this.previousSource.length > 0 ? 'Server refining...' : 'Server generating...'
 
     let metrics = new AttemptMetrics()
     metrics.attempt = 1
+    this.beginMetricAttempt(run)
     let client = http.createHttp()
     try {
       let genStart = Date.now()
       // Refinement: send the base version's source so the server can edit it
       // instead of regenerating from scratch.
-      let requestBody: string = this.prompt.trim()
+      let requestBody: string = this.pendingHistory
       let contentType: string = 'text/plain; charset=utf-8'
       if (this.previousSource.length > 0) {
         let refine = new RefineRequest()
-        refine.prompt = this.prompt.trim()
+        refine.prompt = this.pendingHistory
         refine.previousSource = this.previousSource
         requestBody = JSON.stringify(refine)
         contentType = 'application/json'
@@ -829,16 +973,26 @@ struct GeneratePage {
         connectTimeout: 10000,
         readTimeout: 180000
       })
+      if (run !== this.runId || this.cancelRequested) { return }
       metrics.genMs = Date.now() - genStart
 
       if (resp.responseCode === 200) {
         let body = resp.result as string
         let decoded = decodeServerResponse(body)
+        if (decoded.source.trim().length === 0 || decoded.bytecode.trim().length === 0) {
+          this.status = 'Server result has no source/bytecode pair; the previous successful result is unchanged'
+          this.generating = false
+          this.totalMs = Date.now() - this.genStartTime
+          return
+        }
         this.generatedSource = decoded.source
         this.serverBytecode = decoded.bytecode
         this.compiledVbc2 = decoded.bytecode
         this.compiledSource = decoded.source
-        this.composerOpen = false
+        this.compositionJson = ''
+        this.modelWrote = true
+        this.acceptRequest()
+        animateTo({ duration: 250, curve: Curve.EaseInOut }, () => { this.composerOpen = false })
         this.tab = TAB_PREVIEW
         this.compiled = true
         this.compileErrors = ''
@@ -866,10 +1020,12 @@ struct GeneratePage {
         this.status = 'Server generation failed'
       }
     } catch (e) {
+      if (run !== this.runId || this.cancelRequested) { return }
       this.compileErrors = 'Request failed: ' + (e as Error).message
       this.status = 'Server unreachable'
     } finally {
       client.destroy()
+      if (run === this.runId) { this.finishMetrics(run) }
     }
 
     this.attempts = [metrics]
@@ -881,15 +1037,12 @@ struct GeneratePage {
    * The one place that knows which model is behind the loop. Everything after
    * it -- compile, collect diagnostics, retry -- is identical for both.
    */
-  private async callModel(request: GenerateRequest, onToken: (token: string) => void): Promise<GenerateResult> {
+  private async callModel(request: GenerateRequest, onToken: (token: string) => void, run: number): Promise<GenerateResult> {
     if (this.mode === MODE_DEEPSEEK) {
       // Initial generation, refinement, and retries share reasoning and output settings.
       await ensureCapabilities(this.hostContext())
-      if (this.cancelRequested) { return new GenerateResult() }
-      // Finishing a composed screen only adds to it, and reasoning was most of that call's output; repairs and a
-      // generation from scratch still think.
-      let finishingBase = this.completionBase.length > 0 && request.previousSource === this.completionBase
-      deepseek.setThinking(!finishingBase)
+      if (run !== this.runId || this.cancelRequested) { return new GenerateResult() }
+      deepseek.setThinking(true)
       request.maxTokens = DEEPSEEK_GENERATION_MAX_TOKENS
       return deepseek.generate(request, onToken)
     }
@@ -922,9 +1075,6 @@ struct GeneratePage {
       request.previousSource = this.failedSource
       request.repairByEdit = editing
       request.userPrompt = repairPrompt(userPrompt, errorFeedback, editing, this.failedSource)
-    } else if (this.completionBase.length > 0) {
-      request.previousSource = this.completionBase
-      request.userPrompt = userPrompt + COMPLETION_NOTE
     } else if (this.previousSource.length > 0) {
       request.previousSource = this.previousSource
       request.userPrompt = userPrompt
@@ -935,27 +1085,30 @@ struct GeneratePage {
     let genStart = Date.now()
     let firstTokenAt = 0
     let genResult: GenerateResult
+    this.beginMetricAttempt(run)
     try {
-      genResult = await this.callModel(request, (token: string) => {
+      genResult = await this.metricWork(run, (): Promise<GenerateResult> => this.callModel(request, (token: string) => {
+        if (run !== this.runId || this.cancelRequested) { return }
         if (firstTokenAt === 0) { firstTokenAt = Date.now() }
         this.generatedSource += token
-      })
+      }, run))
       if (run !== this.runId) { return }
+      this.recordMetricResult(run, genResult)
       if (genResult.text.length > 0) {
         this.generatedSource = genResult.text
       }
     } catch (e) {
       if (run !== this.runId) { return }
+      this.metricTotals.partial = true
       metrics.genMs = Date.now() - genStart
       metrics.failLayer = 'request'
       this.attempts = [...this.attempts, metrics]
       this.totalMs = Date.now() - this.genStartTime
       this.addToProgram(metrics)
       this.traceEnd('request: ' + (e as Error).message)
-      if (!this.fallBackToTemplate('Logic step failed (' + (e as Error).message + ')')) {
-        this.status = 'Generation failed: ' + (e as Error).message
-      }
+      this.status = 'Generation failed: ' + (e as Error).message
       this.generating = false
+      this.finishMetrics(run)
       return
     }
     metrics.genMs = Date.now() - genStart
@@ -965,6 +1118,8 @@ struct GeneratePage {
       this.totalMs = Date.now() - this.genStartTime
       this.status = 'Stopped'
       this.generating = false
+      this.metricTotals.partial = true
+      this.finishMetrics(run)
       return
     }
     metrics.inputTokens = genResult.inputTokens
@@ -998,10 +1153,9 @@ struct GeneratePage {
         } else {
           this.totalMs = Date.now() - this.genStartTime
           this.traceEnd('compile')
-          if (!this.fallBackToTemplate('Logic step failed: the edits did not apply after ' + MAX_RETRIES + ' attempts')) {
-            this.status = 'Compilation failed after ' + MAX_RETRIES + ' attempts'
-          }
+          this.status = 'Compilation failed after ' + MAX_RETRIES + ' attempts'
           this.generating = false
+          this.finishMetrics(run)
         }
         return
       }
@@ -1011,13 +1165,12 @@ struct GeneratePage {
     if (this.generatedSource.trim().length === 0) {
       metrics.failLayer = 'empty'
       this.traceEnd('empty')
-      if (!this.fallBackToTemplate('Logic step produced no program')) {
-        this.status = 'Generation produced empty output'
-      }
+      this.status = 'Generation produced empty output'
       this.generating = false
       this.attempts = [...this.attempts, metrics]
       this.totalMs = Date.now() - this.genStartTime
       this.addToProgram(metrics)
+      this.finishMetrics(run)
       return
     }
 
@@ -1066,13 +1219,15 @@ struct GeneratePage {
       this.compiledVbc2 = vbc2
       this.compiledSource = this.generatedSource.trim()
       this.refinePrompt = ''
-      this.composerOpen = false
+      animateTo({ duration: 250, curve: Curve.EaseInOut }, () => { this.composerOpen = false })
       // Only when the program first appears: yanking the pane away from
       // someone reading the source or the numbers is worse than leaving it.
       if (!hadProgram) { this.tab = TAB_PREVIEW }
       this.compiled = true
       this.compileErrors = ''
       this.modelWrote = true
+      this.compositionJson = ''
+      this.acceptRequest()
       this.status = 'Compiled successfully on attempt ' + this.attempt
       logMark('gen-compiled', 'attempt=' + this.attempt.toString())
       let endFields: Record<string, Object> = {}
@@ -1080,6 +1235,7 @@ struct GeneratePage {
       endFields['attempt'] = this.attempt
       endFields['totalMs'] = this.totalMs
       trace('gen-end', endFields)
+      this.closeRun(false, this.attempt)
       this.generating = false
       return
     }
@@ -1104,32 +1260,10 @@ struct GeneratePage {
       this.totalMs = Date.now() - this.genStartTime
       this.generating = false
       this.traceEnd('compile')
-      if (!this.fallBackToTemplate('Logic step failed to compile after ' + MAX_RETRIES + ' attempts')) {
-        this.status = (metrics.failLayer === 'runtime' ? 'Still stopping on its first run' : 'Compilation failed') +
-          ' after ' + MAX_RETRIES + ' attempts'
-      }
+      this.status = (metrics.failLayer === 'runtime' ? 'Still stopping on its first run' : 'Compilation failed') +
+        ' after ' + MAX_RETRIES + ' attempts'
+      this.finishMetrics(run)
     }
-  }
-
-  /**
-   * The composed template a model completion started from, shown when the model cannot finish it for any reason (a request that
-   * failed, an empty answer, edits that did not apply, a program that does not compile). False when there is no such template,
-   * and the caller reports the failure as before.
-   */
-  private fallBackToTemplate(reason: string): boolean {
-    if (this.completionBase.length === 0) { return false }
-    this.generatedSource = this.completionBase
-    this.compiledSource = this.completionBase
-    this.compiledVbc2 = this.completionBaseVbc2
-    this.compositionJson = this.completionComposition
-    this.compileErrors = ''
-    this.compiled = true
-    this.composerOpen = false
-    this.tab = TAB_PREVIEW
-    this.generating = false
-    this.status = reason + '; showing the template without it'
-    this.routeFallback = reason
-    return true
   }
 
   /** The trace's closing event for a generation that ended without a program. */
@@ -1139,6 +1273,26 @@ struct GeneratePage {
     fields['attempt'] = this.attempt
     fields['failure'] = failure
     trace('gen-end', fields)
+    this.closeRun(false, this.attempt)
+  }
+
+  /**
+   * Closes the run's figures for the Metrics tab: the model calls, the lookups and the services as they stand, and the time that
+   * no stage accounts for -- the page's own work when the agent built the screen, the model's own writing when it wrote the program.
+   */
+  private closeRun(byAgent: boolean, attempts: number): void {
+    let ms = this.totalMs > 0 ? this.totalMs : Date.now() - this.genStartTime
+    this.sideCalls = deepseek.getSideCalls()
+    let rest = ms - appMs(this.stages) - yourMs(this.stages)
+    let stages = this.stages.slice()
+    if (byAgent) {
+      addStage(stages, 'Showing the screen', WHO_PHONE, rest)
+    } else {
+      addStage(stages, 'Model writes the program', WHO_MODEL, rest, attempts.toString() + ' attempt(s)')
+    }
+    this.stages = stages
+    this.services = serviceNotes()
+    this.tools = toolCalls()
   }
 
   private addToProgram(metrics: AttemptMetrics): void {
@@ -1240,11 +1394,6 @@ struct GeneratePage {
     return verdict
   }
 
-  private freshInputTokens(): number {
-    let fresh = this.totalInputTokens() - this.totalCacheHitTokens()
-    return fresh > 0 ? fresh : 0
-  }
-
   private cacheLabel(): string {
     let cached = this.totalCacheHitTokens()
     if (cached === 0) { return '' }
@@ -1264,12 +1413,6 @@ struct GeneratePage {
     if (this.generating) { return 'running attempt ' + this.attempt }
     if (this.compiled) { return 'compiled on attempt ' + this.attempt }
     return 'failed after ' + this.attempts.length + ' attempts'
-  }
-
-  private cachePercentNote(): string {
-    let cached = this.totalCacheHitTokens()
-    if (cached === 0 || this.totalInputTokens() === 0) { return 'nothing reused' }
-    return 'reused by DeepSeek, ' + Math.round(cached * 100 / this.totalInputTokens()) + '%'
   }
 
   private rateNote(a: AttemptMetrics): string {
@@ -1374,7 +1517,7 @@ struct GeneratePage {
   }
 
   private hasResult(): boolean {
-    return this.compiledVbc2.length > 0
+    return this.compiledVbc2.length > 0 && this.compiledSource.length > 0
   }
 
   /**
@@ -1386,7 +1529,7 @@ struct GeneratePage {
    */
   private doRefine(): void {
     let ask = this.refinePrompt.trim()
-    if (ask.length === 0 || this.compiledSource.length === 0) { return }
+    if (ask.length === 0 || this.compiledSource.length === 0 || this.generating || this.baseError.length > 0) { return }
     // A change that only adds, removes, replaces or moves a block of a composed screen is made on its
     // record, with no model rewrite; anything else, and any step that does not hold, refines as before.
     if (this.compositionJson.length > 0 && this.mode === MODE_DEEPSEEK && templateSelectEnabled() && settings.hasSelectorKey()) {
@@ -1403,18 +1546,20 @@ struct GeneratePage {
       this.refineWithModel(ask)
       return
     }
+    this.prepareRequest(ask)
     this.generating = true
     this.cancelRequested = false
     let run = ++this.runId
     this.genStartTime = Date.now()
+    this.metricTotals.partial = true
     this.status = 'Checking whether this changes the structure...'
-    let result: EditResult = await editComposition(ask, record, this.mode,
-      (request: string, c: Composition): Promise<CompositionEdit> => selectEdit(request, c, settings.getSelectorKey()))
+    let result: EditResult = await this.metricWork(run, (): Promise<EditResult> => editComposition(ask, record!, this.mode,
+      (request: string, c: Composition): Promise<CompositionEdit> => selectEdit(request, c, settings.getSelectorKey())))
     // Stop bumps runId too, and has already said Stopped.
     if (run !== this.runId) { return }
     this.lastTemplatePick = result.note
     if (!result.applied || result.composition === null) {
-      this.refineWithModel(ask)
+      this.refineWithModel(ask, true)
       return
     }
     this.startRun(ask)
@@ -1425,6 +1570,7 @@ struct GeneratePage {
     this.compiledVbc2 = result.vbc2
     this.compositionJson = compositionToJson(result.composition!)
     this.templateKinds = result.composition!.kinds()
+    this.acceptRequest()
     this.compiled = true
     this.compileErrors = ''
     this.generating = false
@@ -1433,53 +1579,53 @@ struct GeneratePage {
     this.status = 'Changed the structure: ' + result.note
   }
 
-  private refineWithModel(ask: string): void {
-    this.compositionJson = ''
+  private refineWithModel(ask: string, continuing: boolean = false): void {
     // Refine from the last program that compiled, not from generatedSource --
     // a failed attempt leaves its broken text in there.
     this.previousSource = this.compiledSource
-    this.completionBase = ''
-    this.completionBaseVbc2 = ''
-    this.completionComposition = ''
+    if (this.mode === MODE_SERVER) {
+      if (!settings.hasServerUrl()) { this.checkServer(); return }
+      this.doServerGenerate(ask)
+      return
+    }
+    if (!continuing) { this.prepareRequest(ask) }
     this.generating = true
     this.compiled = false
     this.compileErrors = ''
     this.attempt = 1
     this.attempts = []
     this.totalMs = 0
-    this.fastPathRan = false
-    this.fastJevMs = 0
-    this.fastSearchMs = -1
-    this.fastContentMs = 0
-    this.routeKnown = false
-    this.routeVerifyMs = 0
-    this.routeFallback = ''
     this.sideCalls = []
+    this.stages = []
+    this.services = []
+    resetServiceHealth()
+    this.tools = []
+    resetToolLog()
     this.serverBytecode = ''
     this.cancelRequested = false
-    this.runId++
+    if (!continuing) { this.runId++ }
     this.failedSource = ''
     this.delta = new SourceDelta()
     this.startRun(ask)
-    this.genStartTime = Date.now()
+    if (!continuing) { this.genStartTime = Date.now() }
     this.lastRequest = ask
     this.status = 'Refining (attempt 1/' + MAX_RETRIES + ')...'
     this.startAttemptOne(ask, 'Refining')
   }
 
   /** The open question goes with its default: stopping or starting again must not leave the agent waiting. */
-  private settleQuestion(index: number | null): void {
+  private settleQuestion(given: PersonAnswer): void {
     let answer = this.answerQuestion
     this.answerQuestion = null
     this.questionText = ''
     this.questionOptions = []
-    if (answer !== null) { answer(index) }
+    if (answer !== null) { answer(given) }
   }
 
   /** Puts the agent's question on the screen; the promise settles with the person's tap. */
-  private askPerson(question: AgentQuestion): Promise<number | null> {
+  private askPerson(question: AgentQuestion): Promise<PersonAnswer> {
     this.settleQuestion(null)
-    return new Promise<number | null>((resolve: (index: number | null) => void) => {
+    return new Promise<PersonAnswer>((resolve: (answer: PersonAnswer) => void) => {
       this.questionText = question.text
       this.questionOptions = question.options
       this.questionFallback = question.fallback
@@ -1488,6 +1634,10 @@ struct GeneratePage {
   }
 
   private stopGeneration(): void {
+    if (!this.generating) { return }
+    this.metricTotals.partial = true
+    this.finishMetrics(this.runId)
+    if (this.metricPendingRuns.has(this.runId)) { this.metricStaleRuns.add(this.runId) }
     this.settleQuestion(null)
     this.cancelRequested = true
     this.runId++
@@ -1499,20 +1649,13 @@ struct GeneratePage {
   }
 
   private doSave(): void {
-    let source = this.compiledSource.length > 0 ? this.compiledSource : this.generatedSource.trim()
-    if (source.length === 0) { return }
-    let fullPrompt = this.lastRequest.length > 0 ? this.lastRequest : this.prompt.trim()
-    let note = fullPrompt
+    if (this.generating || this.compiledSource.length === 0 || !this.hasResult()) { return }
+    let note = this.acceptedRequest
     if (note.length > 100) { note = note.substring(0, 100) + '...' }
-    let vbc2 = this.compiledVbc2
-    if (vbc2.length === 0 && this.compiled) {
-      try {
-        let result = compileVeraSource(source)
-        vbc2 = result.vbc2
-      } catch (_e) {}
-    }
-    store.createVersion(this.projectId, source, vbc2, note, fullPrompt, this.originLabel(), this.compositionJson)
-    this.status = vbc2.length > 0 ? 'Saved with compiled bytecode' : 'Saved (source only — compile errors)'
+    store.createVersion(this.projectId, this.compiledSource, this.compiledVbc2, note,
+      this.requestHistory, this.acceptedOrigin, this.acceptedComposition, this.acceptedRequest, this.baseVersionId,
+      this.acceptedMetrics)
+    this.status = 'Saved with compiled bytecode'
     refreshForms()
     this.getUIContext().getRouter().back()
   }
@@ -1597,6 +1740,7 @@ struct GeneratePage {
   }
 
   private canGenerate(): boolean {
+    if (this.baseError.length > 0) { return false }
     if (this.mode === MODE_SERVER) { return settings.hasServerUrl() }
     if (this.mode === MODE_DEEPSEEK) { return settings.hasApiKey() }
     return this.modelReady
@@ -1614,20 +1758,29 @@ struct GeneratePage {
     return total
   }
 
+  /** Every model call of the run: the program's own attempts and the small calls (plan, text, functions, sections). */
+  private allInputTokens(): number { return this.totalInputTokens() + this.sideInput(this.sideCalls) }
+  private allCachedTokens(): number { return this.totalCacheHitTokens() + this.sideCached(this.sideCalls) }
+  private allOutputTokens(): number { return this.totalOutputTokens() + this.sideOutput(this.sideCalls) }
+  private allFreshTokens(): number { return Math.max(0, this.allInputTokens() - this.allCachedTokens()) }
+  private allModelMs(): number { return this.runLlmMs() + this.sideMs(this.sideCalls) }
+  private allCost(): number { return this.costOf(this.allInputTokens(), this.allCachedTokens(), this.allOutputTokens()) }
+
+  /** Output tokens per second over every model call, the wait for the first token included: what the person lived through. */
+  private allSpeed(): string {
+    let ms = this.allModelMs()
+    return ms > 0 && this.allOutputTokens() > 0 ? Math.round(this.allOutputTokens() * 1000 / ms) + ' tok/s' : '\u2014'
+  }
+
+  private allCachePercentNote(): string {
+    if (this.allCachedTokens() === 0 || this.allInputTokens() === 0) { return 'nothing reused' }
+    return 'reused by DeepSeek, ' + Math.round(this.allCachedTokens() * 100 / this.allInputTokens()) + '%'
+  }
+
   private totalOutputTokens(): number {
     let total = 0
     for (let a of this.attempts) total += a.outputTokens
     return total
-  }
-
-  /** The small calls that belong to one stage of the run: '1' checking Jev, '2' filling in text, '3' before the program is written. */
-  private sideCallsOf(stage: string): SideCall[] {
-    let out: SideCall[] = []
-    for (let call of this.sideCalls) {
-      let own = call.purpose === 'Second opinion on a weak pick' ? '1' : (call.purpose === 'Pick the UI components' ? '3' : '2')
-      if (own === stage) { out.push(call) }
-    }
-    return out
   }
 
   private sideInput(calls: SideCall[]): number { let n = 0; for (let c of calls) { n += c.inputTokens } return n }
@@ -1636,126 +1789,266 @@ struct GeneratePage {
   private sideMs(calls: SideCall[]): number { let n = 0; for (let c of calls) { n += c.ms } return n }
   private sideCost(calls: SideCall[]): number { return this.costOf(this.sideInput(calls), this.sideCached(calls), this.sideOutput(calls)) }
 
-  /** One small call on one line: what it was for, how long it took, what it read and wrote, what it cost. */
-  private callLine(call: SideCall): string {
-    if (!call.ok) { return this.formatMs(call.ms) + ' \u00B7 failed' }
-    return this.formatMs(call.ms) + ' \u00B7 ' + call.inputTokens + ' in' +
-      (call.cachedTokens > 0 ? ' (' + call.cachedTokens + ' cached)' : '') + ' \u00B7 ' + call.outputTokens + ' out \u00B7 ~' +
-      this.formatUsd(this.costOf(call.inputTokens, call.cachedTokens, call.outputTokens))
+  /** The colour of whoever did the work in a stage: the model that writes, Jev, the web search, the phone, the person. */
+  whoTone(who: string): string {
+    if (who === WHO_MODEL) { return '#C77700' }
+    if (who === WHO_JEV) { return '#2F6FEB' }
+    if (who === WHO_SEARCH) { return '#7B3FE4' }
+    if (who === WHO_PHONE) { return '#1F9D4C' }
+    return '#888888'
   }
 
-  /** Colour of the route headline: blocks alone, blocks the model finishes, or a program written from scratch. */
-  routeTone(): string {
-    if (this.routeInfo.route === ROUTE_BLOCKS) { return '#1F9D4C' }
-    if (this.routeInfo.route === ROUTE_BLOCKS_MODEL) { return '#C77700' }
-    return '#4A5A80'
+  /** One model call without its time (that is on the line's right): what it read, wrote, how fast, what it cost. */
+  private callDetail(call: SideCall): string {
+    if (!call.ok) { return 'failed' }
+    return call.inputTokens + ' in' + (call.cachedTokens > 0 ? ' (' + call.cachedTokens + ' cached)' : '') + ' \u00B7 ' +
+      call.outputTokens + ' out' + (call.ms > 0 && call.outputTokens > 0 ? ' (' + Math.round(call.outputTokens * 1000 / call.ms) + ' tok/s)' : '') +
+      ' \u00B7 ~' + this.formatUsd(this.costOf(call.inputTokens, call.cachedTokens, call.outputTokens))
   }
 
-  /** A numbered stage heading with a coloured bar, so the three parts of a run cannot be mistaken for one another. */
-  @Builder
-  stageHeader(num: string, title: string, who: string, color: string) {
-    Column({ space: 4 }) {
-      // The row is narrower than the pane: the pane's right edge slices whatever touches it.
-      Row({ space: 8 }) {
-        Text(num)
-          .fontSize(12)
-          .fontWeight(FontWeight.Bold)
-          .fontColor('#FFFFFF')
-          .backgroundColor(color)
-          .borderRadius(10)
-          .width(20)
-          .height(20)
-          .textAlign(TextAlign.Center)
-        Text(title).fontSize(13).fontWeight(FontWeight.Bold).fontColor(color).layoutWeight(1).maxLines(1)
-        Text(who)
-          .fontSize(10)
-          .fontColor(color)
-          .maxLines(1)
-          .border({ width: 1, color: color, radius: 6 })
-          .padding({ left: 6, right: 6, top: 2, bottom: 2 })
-      }
-      .width('92%')
-      Divider().strokeWidth(2).color(color)
+  /** The head figure of the services card, and its colour: whether anyone in this run did not answer. */
+  private servicesSummary(): string {
+    let down = 0
+    let some = 0
+    for (let n of this.services) {
+      if (silent(n)) { down++ } else if (n.failed > 0) { some++ }
     }
-    .width('100%')
-    .alignItems(HorizontalAlign.Start)
-    .padding({ top: 6 })
+    if (down > 0) { return down + ' not answering' }
+    if (some > 0) { return some + ' with failures' }
+    return 'all answered'
   }
 
-  /** One small model call as a card: its purpose, then time, tokens and cost. */
-  @Builder
-  callRow(call: SideCall) {
-    Column({ space: 2 }) {
-      Text(call.purpose).fontSize(12).fontWeight(FontWeight.Medium).fontColor('#222222')
-      Text(this.callLine(call)).fontSize(11).fontColor(call.ok ? '#666666' : '#C62828')
+  private servicesTone(): string {
+    let some = false
+    for (let n of this.services) {
+      if (silent(n)) { return '#C62828' }
+      if (n.failed > 0) { some = true }
     }
-    .width('100%')
-    .alignItems(HorizontalAlign.Start)
-    .padding(10)
-    .backgroundColor('#FFFFFF')
-    .borderRadius(8)
+    return some ? '#C77700' : '#2E7D32'
   }
 
   /**
-   * One fact per tile: a label, the number, and a line saying what it means.
-   * Values stay short by construction, which is also what keeps the pane from
-   * running off the side of a phone.
+   * Where the time of the run went: the app's total, how it divides between the model, Jev, the search and the phone, and then
+   * every stage in the order it happened, each with its share drawn as a bar. The person's own waiting is listed, never counted.
    */
   @Builder
-  cell(label: string, value: string, note: string) {
-    // Two nodes on purpose: in ArkUI width() sizes the content and padding is
-    // added outside it, so a padded node that is also given a width or a
-    // layout weight ends up wider than its parent. The outer node owns the
-    // width, the inner one owns the padding.
-    Column() {
-      Column({ space: 2 }) {
-        Text(label).fontSize(10).fontColor('#888888').maxLines(1)
-        Text(value).fontSize(17).fontWeight(FontWeight.Bold).fontColor('#222222')
-          .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(note).fontSize(10).fontColor('#999999').maxLines(2)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
+  stagesPanel() {
+    MetricCard({ title: 'Where the time went', value: this.formatMs(appMs(this.stages)) }) {
+      if (yourMs(this.stages) > 0) {
+        Text('and ' + this.formatMs(yourMs(this.stages)) + ' waiting for your answers, not counted')
+          .fontSize(11).fontColor('#888888').width('100%')
       }
-      .alignItems(HorizontalAlign.Start)
-      .padding(10)
+      // Who spent it: one chip each, in the order they first appear in the run.
+      Flex({ wrap: FlexWrap.Wrap }) {
+        ForEach(byWho(this.stages), (w: Stage) => {
+          MetricChip({ text: w.who + ' ' + this.formatMs(w.ms), color: this.whoTone(w.who) })
+        }, (w: Stage) => w.who)
+      }
+      .width('100%')
+      ForEach(this.stages, (st: Stage, index: number) => {
+        this.stageRow(st, appMs(this.stages))
+      }, (st: Stage, index: number) => index.toString() + st.name)
     }
-    .layoutWeight(1)
-    .alignItems(HorizontalAlign.Start)
-    .backgroundColor('#FFFFFF')
-    .borderRadius(8)
   }
 
   @Builder
-  pastRun(record: RunRecord, index: number) {
-    Column() {
-      Column({ space: 4 }) {
-        Row({ space: 8 }) {
-          Text('#' + (index + 1) + (index === 0 ? ' generated' : ' refined'))
-            .fontSize(11).fontColor('#888888')
-          Text(record.compiled ? '✓' : '✗')
-            .fontSize(11)
-            .fontColor(record.compiled ? '#2E7D32' : '#C62828')
-        }
-        Text(record.request.length > 0 ? record.request : '(no request)')
-          .fontSize(12).fontColor('#333333')
-          .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(this.pastRunSummary(record))
-          .fontSize(11).fontColor('#888888')
+  stageRow(st: Stage, total: number) {
+    Column({ space: 3 }) {
+      Row({ space: 6 }) {
+        Text(st.name).fontSize(12).fontColor('#222222').layoutWeight(1).maxLines(2)
+        Text(st.who).fontSize(10).fontColor(this.whoTone(st.who))
+        Text(this.formatMs(st.ms)).fontSize(12).fontWeight(FontWeight.Medium).fontColor('#222222')
       }
-      .alignItems(HorizontalAlign.Start)
-      .padding(10)
+      .width('100%')
+      Stack({ alignContent: Alignment.Start }) {
+        Row().width('100%').height(4).backgroundColor('#EEF1F5').borderRadius(2)
+        Row()
+          .width(st.who === WHO_YOU || total <= 0 ? '0%' : Math.max(1, Math.min(100, Math.round(st.ms * 100 / total))).toString() + '%')
+          .height(4)
+          .backgroundColor(this.whoTone(st.who))
+          .borderRadius(2)
+      }
+      .width('100%')
+      Text((st.who === WHO_YOU ? 'not counted' : (total > 0 ? Math.round(st.ms * 100 / total).toString() + '% of the run' : '')) +
+        (st.note.length > 0 ? ' \u00B7 ' + st.note : ''))
+        .fontSize(10).fontColor('#999999').width('100%').maxLines(2)
     }
     .width('100%')
     .alignItems(HorizontalAlign.Start)
-    .backgroundColor('#FFFFFF')
-    .borderRadius(8)
+  }
+
+  /**
+   * What the model calls of the run read and wrote: tokens in, reused from the cache, paid for in full, and out; the speed and
+   * the cost over all of them; then each call on a line of its own. The program's own attempts and the small calls (the plan,
+   * the sections' text and functions, a section the model writes) count together.
+   */
+  @Builder
+  tokensPanel() {
+    MetricCard({ title: 'Model calls', value: this.mode === MODE_DEEPSEEK ? '~' + this.formatUsd(this.allCost()) : '' }) {
+      Row({ space: 8 }) {
+        MetricTile({ label: 'Input', value: this.allInputTokens() + ' toks', note: 'rules, request, old code' }).layoutWeight(1)
+        MetricTile({ label: 'Cached', value: this.allCachedTokens() + ' toks', note: this.allCachePercentNote() }).layoutWeight(1)
+      }
+      .width('100%')
+      Row({ space: 8 }) {
+        MetricTile({ label: 'Fresh', value: this.allFreshTokens() + ' toks', note: 'input at full price' }).layoutWeight(1)
+        MetricTile({ label: 'Output', value: this.allOutputTokens() + ' toks', note: 'text, code and reasoning' }).layoutWeight(1)
+      }
+      .width('100%')
+      Row({ space: 8 }) {
+        MetricTile({ label: 'Speed', value: this.allSpeed(), note: 'output over the time of all calls' }).layoutWeight(1)
+        MetricTile({ label: 'Calls', value: (this.sideCalls.length + this.attempts.length).toString(), note: 'plan, text, functions, program' }).layoutWeight(1)
+      }
+      .width('100%')
+      ForEach(this.sideCalls, (call: SideCall, index: number) => {
+        MetricLine({ title: call.purpose, right: this.formatMs(call.ms), detail: this.callDetail(call), bad: !call.ok })
+      }, (call: SideCall, index: number) => index.toString() + call.purpose)
+    }
+  }
+
+  /**
+   * The lookups of the run: how many and how long they took on the head line; a tap opens each with what it asked for and what
+   * came back. A run that made none says so, so an empty card is a fact and not a card that failed to load.
+   */
+  @Builder
+  toolsPanel() {
+    MetricCard({
+      title: 'Tool calls',
+      value: this.tools.length === 0 ? 'none' : this.tools.length + ' \u00B7 ' + this.formatMs(toolMs(this.tools)),
+      chevron: this.tools.length === 0 ? '' : (this.toolsOpen ? '\u25B2' : '\u25BC'),
+      onHead: (): void => {
+        if (this.tools.length > 0) { animateTo({ duration: 200, curve: Curve.EaseInOut }, () => { this.toolsOpen = !this.toolsOpen }) }
+      }
+    }) {
+      if (this.tools.length === 0) {
+        Text('No lookups in this run: nothing asked for a phone function, an intent, a component or a search.')
+          .fontSize(11).fontColor('#888888').width('100%')
+      } else if (this.toolsOpen) {
+        Flex({ wrap: FlexWrap.Wrap }) {
+          ForEach(toolTotals(this.tools), (t: ToolTotal) => {
+            MetricChip({ text: t.tool + ' \u00D7' + t.count + ' \u00B7 ' + this.formatMs(t.ms) + (t.failed > 0 ? ' \u00B7 ' + t.failed + ' failed' : ''),
+              color: t.failed > 0 ? '#C62828' : '#555555' })
+          }, (t: ToolTotal) => t.tool)
+        }
+        .width('100%')
+        ForEach(this.tools, (c: ToolCall, index: number) => {
+          MetricLine({ title: c.tool, right: this.formatMs(c.ms), ask: c.query.length > 0 ? '"' + c.query + '"' : '',
+            detail: (c.ok ? '' : 'FAILED: ') + c.note, bad: !c.ok })
+        }, (c: ToolCall, index: number) => index.toString() + c.tool)
+      }
+    }
+  }
+
+  /**
+   * Who answered: one line per service the run called (Jev, Exa, DeepSeek), red when it answered nothing, amber when some calls
+   * failed. What a slow or fallen-back run owes to a service that was not there reads here, with what it said.
+   */
+  @Builder
+  servicesPanel() {
+    MetricCard({ title: 'Services', value: this.servicesSummary(), valueColor: this.servicesTone() }) {
+      ForEach(this.services, (n: ServiceNote) => {
+        Row({ space: 8 }) {
+          Text(silent(n) ? '\u2716' : (n.failed > 0 ? '!' : '\u2714'))
+            .fontSize(12)
+            .fontColor(silent(n) ? '#C62828' : (n.failed > 0 ? '#C77700' : '#2E7D32'))
+          Text(describeService(n))
+            .fontSize(12)
+            .fontColor(silent(n) ? '#C62828' : (n.failed > 0 ? '#8A5A00' : '#444444'))
+            .layoutWeight(1)
+        }
+        .width('100%')
+        .alignItems(VerticalAlign.Top)
+      }, (n: ServiceNote) => n.service)
+    }
+  }
+
+  /**
+   * The program the model wrote itself (a run the agent did not serve, or a refine): how long it took, what the compiler cost,
+   * each attempt, and the runs before it.
+   */
+  @Builder
+  attemptsPanel() {
+    MetricCard({ title: 'Model writes the program', value: this.formatMs(this.runLlmMs()) }) {
+      Row({ space: 8 }) {
+        MetricTile({ label: 'Writing', value: this.formatMs(this.runLlmMs()), note: this.runVerdict() }).layoutWeight(1)
+        MetricTile({ label: 'On device', value: this.formatMs(this.runCompileMs()), note: 'compiler only' }).layoutWeight(1)
+      }
+      .width('100%')
+      if (this.mode === MODE_DEEPSEEK) {
+        Row({ space: 8 }) {
+          MetricTile({ label: 'Cost', value: '~' + this.formatUsd(this.runCost()), note: 'incl. failed attempts' }).layoutWeight(1)
+          MetricTile({ label: 'Attempts', value: this.attempts.length.toString(), note: 'of ' + MAX_RETRIES }).layoutWeight(1)
+        }
+        .width('100%')
+      }
+      if (this.delta.measured) {
+        Row({ space: 8 }) {
+          MetricTile({ label: 'Changed', value: '+' + this.delta.added + ' \u2212' + this.delta.removed + ' lines', note: 'against the previous version' }).layoutWeight(1)
+          MetricTile({ label: 'Kept', value: this.delta.keptPercent + '%', note: 'of the previous lines' }).layoutWeight(1)
+        }
+        .width('100%')
+      }
+      ForEach(this.attempts, (a: AttemptMetrics) => {
+        MetricLine({ title: '#' + a.attempt + ' attempt', right: this.formatMs(a.genMs), detail: this.attemptVerdict(a), bad: !a.success })
+        // Three disjoint phases of one model call, then the compiler: they add up to the time of the attempt.
+        Row({ space: 8 }) {
+          MetricTile({ label: 'Wait', value: a.ttftMs > 0 ? this.formatMs(a.ttftMs) : '\u2014', note: 'until first token' }).layoutWeight(1)
+          if (a.thinkMs > 0) {
+            MetricTile({ label: 'Think', value: this.formatMs(a.thinkMs), note: 'reasoning' }).layoutWeight(1)
+          }
+          MetricTile({ label: 'Write', value: this.formatMs(this.writeMs(a)), note: 'streaming code' }).layoutWeight(1)
+        }
+        .width('100%')
+        Row({ space: 8 }) {
+          MetricTile({ label: 'Compile', value: a.compileMs > 0 ? this.formatMs(a.compileMs) : '\u2014', note: 'on device' }).layoutWeight(1)
+          MetricTile({ label: 'Speed', value: this.speedLabel(a), note: 'output after the wait' }).layoutWeight(1)
+        }
+        .width('100%')
+      })
+      if (this.program.runs > 1) {
+        Row({ space: 8 }) {
+          MetricTile({ label: 'Runs', value: this.program.runs + '', note: 'generation and refines' }).layoutWeight(1)
+          MetricTile({ label: 'Spent', value: this.programSpentLabel(), note: this.program.attempts + ' model calls in all' }).layoutWeight(1)
+        }
+        .width('100%')
+        Row({ space: 8 }) {
+          MetricTile({ label: 'LLM wall', value: this.formatMs(this.program.llmMs), note: 'whole program' }).layoutWeight(1)
+          MetricTile({ label: 'On device', value: this.formatMs(this.program.compileMs), note: 'whole program' }).layoutWeight(1)
+        }
+        .width('100%')
+        Text('Earlier runs').fontSize(11).fontColor('#888888').width('100%')
+        ForEach(this.pastRuns(), (record: RunRecord) => {
+          MetricLine({ title: '#' + (this.indexOfRun(record) + 1) + (this.indexOfRun(record) === 0 ? ' generated' : ' refined'),
+            right: record.compiled ? '\u2714' : '\u2716', ask: record.request.length > 0 ? record.request : '(no request)',
+            detail: this.pastRunSummary(record), bad: !record.compiled })
+        })
+      }
+    }
   }
 
   build() {
     Navigation() {
       Column() {
-        if (this.previousSource.length > 0 && !this.hasResult()) {
-          Text('Refining existing version')
-            .fontSize(13).fontColor('#007DFF').padding({ left: 16, top: 8 })
+        if (this.baseError.length > 0) {
+          Text(this.baseError)
+            .fontSize(13).fontColor('#C62828').padding({ left: 16, right: 16, top: 8 })
+        } else if (this.baseVersionId.length > 0) {
+          Text('Changes apply to version ' + this.baseVersionNumber.toString() +
+            '. Save creates version ' + this.nextVersionNumber.toString() + '.')
+            .fontSize(13).fontColor('#007DFF').padding({ left: 16, right: 16, top: 8 })
+        }
+        if (this.requestHistory.length > 0) {
+          Column({ space: 4 }) {
+            Text('Version request').fontSize(12).fontColor('#888888').width('100%')
+            Scroll() {
+              Text(this.requestHistory).fontSize(13).fontColor('#333333').width('100%')
+                .copyOption(CopyOptions.LocalDevice)
+            }
+            .width('100%')
+            .constraintSize({ maxHeight: 110 })
+          }
+          .width('100%')
+          .padding({ left: 16, right: 16, top: 8 })
         }
 
         Row({ space: 8 }) {
@@ -1808,7 +2101,7 @@ struct GeneratePage {
         // the composer to start over from a new request.
         if (this.hasResult() && !this.composerOpen) {
           Row({ space: 8 }) {
-            Text(this.lastRequest.length > 0 ? this.lastRequest : this.prompt)
+            Text(this.acceptedRequest)
               .fontSize(12)
               .fontColor('#666666')
               .maxLines(1)
@@ -1822,7 +2115,7 @@ struct GeneratePage {
               .backgroundColor('#F0F0F0')
               .fontColor('#666666')
               .enabled(!this.generating)
-              .onClick(() => { this.composerOpen = true })
+              .onClick(() => { this.startNew() })
             Button('Save')
               .type(ButtonType.Normal)
               .fontSize(11)
@@ -1833,14 +2126,15 @@ struct GeneratePage {
           .width('100%')
           .padding({ left: 16, right: 16, top: 8 })
         } else {
-          TextArea({ placeholder: 'Describe the app you want...', text: this.prompt })
+          TextArea({ placeholder: this.baseVersionId.length > 0 || this.hasResult() ? 'What to change?' : 'Describe the app you want...', text: this.prompt })
             .onChange((value: string) => { this.prompt = value })
+            .enabled(!this.generating && this.baseError.length === 0)
             .width('100%')
             .height(100)
             .margin(16)
 
           Row({ space: 10 }) {
-            Button(this.generating ? 'Stop' : 'Generate')
+            Button(this.generating ? 'Stop' : (this.baseVersionId.length > 0 || this.hasResult() ? 'Refine' : 'Generate'))
               .type(ButtonType.Normal)
               .layoutWeight(1)
               .enabled(this.canGenerate() || this.generating)
@@ -1854,7 +2148,7 @@ struct GeneratePage {
             Button('Save')
               .type(ButtonType.Normal)
               .layoutWeight(1)
-              .enabled(this.generatedSource.trim().length > 0 && !this.generating)
+              .enabled(this.hasResult() && !this.generating)
               .onClick(() => { this.doSave() })
           }
           .width('100%')
@@ -1872,30 +2166,10 @@ struct GeneratePage {
         .width('100%')
         .padding({ left: 16, right: 16, top: 8, bottom: 4 })
 
-        if (this.routeKnown) {
-          Column({ space: 2 }) {
-            Text(routeLabel(this.routeInfo))
-              .fontSize(13)
-              .fontWeight(FontWeight.Bold)
-              .fontColor(this.routeTone())
-            Text(jevLabel(this.routeInfo) + '  \u00B7  ' + checkLabel(this.routeInfo))
-              .fontSize(11)
-              .fontColor('#555555')
-              .maxLines(2)
-            Text(routeWhy(this.routeInfo))
-              .fontSize(11)
-              .fontColor('#777777')
-              .maxLines(4)
-            if (this.routeFallback.length > 0) {
-              Text('The model step failed (' + this.routeFallback + '), so the blocks are shown without it.')
-                .fontSize(11)
-                .fontColor('#B25000')
-                .maxLines(3)
-            }
-          }
-          .width('100%')
-          .alignItems(HorizontalAlign.Start)
-          .padding({ left: 16, right: 16, top: 0, bottom: 4 })
+        if (!this.generating && this.hasResult() && this.generatedSource.trim() !== this.compiledSource.trim()) {
+          Text('The last attempt was not applied. Save keeps the previous successful code and version request.')
+            .fontSize(12).fontColor('#B25000')
+            .padding({ left: 16, right: 16, bottom: 4 })
         }
 
         // Experiment only (experiment/jev-template-select branch): survives
@@ -1979,7 +2253,8 @@ struct GeneratePage {
           Column() {
             if (this.questionText.length > 0) {
               QuestionCard({ question: this.questionText, options: this.questionOptions, fallback: this.questionFallback,
-                onPick: (index: number): void => { this.settleQuestion(index) } })
+                onPick: (index: number): void => { this.settleQuestion(index) },
+                onTyped: (text: string): void => { this.settleQuestion(text) } })
                 .margin({ bottom: 8 })
             }
             if (this.hasResult()) {
@@ -2007,7 +2282,8 @@ struct GeneratePage {
           .clip(true)
         } else if (this.tab === TAB_CODE) {
           Scroll() {
-            Text(this.generatedSource.length > 0 ? this.generatedSource : '(generated source will appear here)')
+            Text(!this.generating && this.hasResult() ? this.compiledSource :
+              (this.generatedSource.length > 0 ? this.generatedSource : '(generated source will appear here)'))
               .fontSize(12)
               .fontFamily('monospace')
               .fontColor(this.generatedSource.length > 0 ? '#333333' : '#CCCCCC')
@@ -2023,156 +2299,37 @@ struct GeneratePage {
         } else {
           Scroll() {
             Column({ space: 10 }) {
-              if (this.routeKnown || this.attempts.length > 0) {
-                // Totals first, then the three stages in the order they happen.
-                Row({ space: 8 }) {
-                  this.cell('Total time', this.formatMs(this.totalMs), 'the whole run')
-                  if (this.mode === MODE_DEEPSEEK) {
-                    this.cell('Total cost', '~' + this.formatUsd(this.runCost() + this.sideCost(this.sideCalls)), 'all model calls')
-                  }
-                }
-                .width('100%')
+              if (this.stages.length > 0) {
+                this.stagesPanel()
               }
-              if (this.routeKnown) {
-                this.stageHeader('1', 'Choosing blocks', 'Jev', '#2F6FEB')
-                Row({ space: 8 }) {
-                  this.cell('Route', routeShort(this.routeInfo), jevLabel(this.routeInfo))
-                  this.cell('Jev', this.formatMs(this.fastJevMs), 'classify + pick blocks')
-                }
-                .width('100%')
-                Row({ space: 8 }) {
-                  this.cell('Check', checkShort(this.routeInfo),
-                    this.routeInfo.check === CHECK_NONE ? 'no second look needed' : checkLabel(this.routeInfo).replace('Check: ', ''))
-                  if (this.fastSearchMs >= 0) {
-                    this.cell('Search', this.formatMs(this.fastSearchMs), 'real-data lookup')
-                  }
-                }
-                .width('100%')
-                ForEach(this.sideCallsOf('1'), (call: SideCall) => { this.callRow(call) })
-                Text(routeWhy(this.routeInfo)).fontSize(12).fontColor('#555555').width('92%')
-
-                if (this.sideCallsOf('2').length > 0 || this.fastContentMs > 0) {
-                  this.stageHeader('2', 'Model fills in text', settings.providerLabel() + ' \u00B7 text only', '#1F9D4C')
-                  ForEach(this.sideCallsOf('2'), (call: SideCall) => { this.callRow(call) })
-                  Row({ space: 8 }) {
-                    this.cell('Stage time', this.formatMs(this.sideMs(this.sideCallsOf('2'))), 'text for the blocks')
-                    this.cell('Stage cost', '~' + this.formatUsd(this.sideCost(this.sideCallsOf('2'))),
-                      this.sideInput(this.sideCallsOf('2')) + ' in \u00B7 ' + this.sideOutput(this.sideCallsOf('2')) + ' out')
-                  }
-                  .width('100%')
-                }
+              if (this.attempts.length > 0) {
+                this.attemptsPanel()
               }
-              if (this.attempts.length === 0 && !this.fastPathRan) {
-                Text('No run yet').fontSize(13).fontColor('#BBBBBB').width('100%')
-              } else if (this.attempts.length > 0) {
-                this.stageHeader(this.routeKnown ? '3' : '1', 'Model writes the program', settings.providerLabel(), '#C77700')
-                ForEach(this.sideCallsOf('3'), (call: SideCall) => { this.callRow(call) })
-                // Two tiles per row: a right-aligned column inside a full-width row kept landing
-                // past the edge, and this needs no special case.
-                Row({ space: 8 }) {
-                  this.cell('Writing', this.formatMs(this.runLlmMs()), this.runVerdict())
-                  if (this.mode === MODE_DEEPSEEK) {
-                    this.cell('Stage cost', '~' + this.formatUsd(this.runCost()), 'incl. failed attempts')
-                  }
-                }
-                .width('100%')
-
-                // Where the writing time went: waiting on the model, or working on the phone.
-                Row({ space: 8 }) {
-                  this.cell('On device', this.formatMs(this.runCompileMs()), 'compiler only')
-                }
-                .width('100%')
-
-                if (this.delta.measured) {
-                  Row({ space: 8 }) {
-                    this.cell('Changed', '+' + this.delta.added + ' −' + this.delta.removed + ' lines',
-                      'against the previous version')
-                    this.cell('Kept', this.delta.keptPercent + '%', 'of the previous lines')
-                  }
-                  .width('100%')
-                }
-
-                if (this.mode !== MODE_SERVER) {
-                  Row({ space: 8 }) {
-                    this.cell('Input', this.totalInputTokens() + ' toks', 'rules, request, old code')
-                    this.cell('Cached', this.totalCacheHitTokens() + ' toks', this.cachePercentNote())
-                  }
-                  .width('100%')
-                  Row({ space: 8 }) {
-                    this.cell('Fresh', this.freshInputTokens() + ' toks', 'input at full price')
-                    this.cell('Output', this.totalOutputTokens() + ' toks', 'program and reasoning')
-                  }
-                  .width('100%')
-                }
-
-                ForEach(this.attempts, (a: AttemptMetrics) => {
-                  Column() {
-                  Column({ space: 8 }) {
-                    Row({ space: 8 }) {
-                      Text('#' + a.attempt).fontSize(13).fontWeight(FontWeight.Bold)
-                      Text(this.attemptVerdict(a))
-                        .fontSize(11)
-                        .fontColor(a.success ? '#2E7D32' : '#C62828')
-                        .backgroundColor(a.success ? '#E8F8E8' : '#FFECEC')
-                        .padding({ left: 8, right: 8, top: 3, bottom: 3 })
-                        .borderRadius(6)
-                        .maxLines(2)
-                    }
-                    .width('100%')
-                    // Three disjoint phases of one model call, then the
-                    // compiler. They add up to the run time, which the old
-                    // layout implied but did not deliver.
-                    Row({ space: 8 }) {
-                      this.cell('Wait', a.ttftMs > 0 ? this.formatMs(a.ttftMs) : '—', 'until first token')
-                      if (a.thinkMs > 0) {
-                        this.cell('Think', this.formatMs(a.thinkMs), 'reasoning')
-                      }
-                      this.cell('Write', this.formatMs(this.writeMs(a)), 'streaming code')
-                    }
-                    .width('100%')
-                    .alignItems(VerticalAlign.Top)
-                    Row({ space: 8 }) {
-                      this.cell('Compile', a.compileMs > 0 ? this.formatMs(a.compileMs) : '—', 'on device')
-                      this.cell('Speed', this.speedLabel(a), 'output after the wait')
-                    }
-                    .width('100%')
-                    .alignItems(VerticalAlign.Top)
-                  }
-                  .width('100%')
-                  .padding(12)
-                  }
-                  .width('100%')
-                  .backgroundColor('#FFFFFF')
-                  .borderRadius(10)
-                })
-
-                if (this.program.runs > 1) {
-                  Row({ space: 8 }) {
-                    this.cell('Runs', this.program.runs + '', 'generation and refines')
-                    this.cell('Spent', this.programSpentLabel(),
-                      this.program.attempts + ' model calls in all')
-                  }
-                  .width('100%')
-
-                  Row({ space: 8 }) {
-                    this.cell('LLM wall', this.formatMs(this.program.llmMs), 'whole program')
-                    this.cell('On device', this.formatMs(this.program.compileMs), 'whole program')
-                  }
-                  .width('100%')
-
-                  Text('Earlier runs').fontSize(11).fontColor('#888888').width('100%')
-                  ForEach(this.pastRuns(), (record: RunRecord) => {
-                    this.pastRun(record, this.indexOfRun(record))
-                  })
-                }
+              if (this.mode !== MODE_SERVER && (this.sideCalls.length > 0 || this.attempts.length > 0)) {
+                this.tokensPanel()
+              }
+              if (this.stages.length > 0 || this.attempts.length > 0 || this.tools.length > 0) {
+                this.toolsPanel()
+              }
+              if (this.services.length > 0) {
+                this.servicesPanel()
+              }
+              if (this.attempts.length === 0 && this.stages.length === 0) {
+                Text('No run yet').fontSize(13).fontColor('#BBBBBB').width('100%').textAlign(TextAlign.Center).padding({ top: 24 })
               }
             }
-            .width('100%')
-            .alignItems(HorizontalAlign.Start)
+            // The measured width, so that the cards (92% of it) are centred in the pane drawn and not in the wider box a percentage
+            // resolves against; before the first measure the percentage stands in.
+            .width(this.metricsWidth > 0 ? this.metricsWidth : '100%')
+            .alignItems(HorizontalAlign.Center)
           }
           .width('100%')
           .layoutWeight(1)
           .align(Alignment.Top)
+          .onAreaChange((_old: Area, area: Area): void => {
+            let w = Number(area.width)
+            if (w > 0 && Math.abs(w - this.metricsWidth) > 0.5) { this.metricsWidth = w }
+          })
           // The bar is drawn over the content, and the rightmost tile in every
           // row ends up sliced by it.
           .scrollBar(BarState.Off)
@@ -2216,7 +2373,7 @@ struct GeneratePage {
       .width('100%')
       .height('100%')
     }
-    .title('Generate')
+    .title(this.baseVersionId.length > 0 ? 'Refine · Version ' + this.nextVersionNumber.toString() : 'Generate')
     .titleMode(NavigationTitleMode.Mini)
   }
 }

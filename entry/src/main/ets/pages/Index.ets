@@ -1,6 +1,9 @@
 import { Project, store } from '../vera/ProjectStore'
+import { projectOperations, ProjectOperationStatus } from '../vera/ProjectOperations'
 import { consent } from '../vera/VeraConsentStore'
 import { refreshForms } from '../vera/FormUpdater'
+import { projectIconResource } from '../vera/ProjectIcons'
+import { common } from '@kit.AbilityKit'
 
 const ICONS: string[] = ['📱', '🎮', '📊', '🧮', '🎯', '📝', '🔧', '🎨', '🌍', '⚡']
 
@@ -13,6 +16,7 @@ class ProjectNavParams {
 struct Index {
   @State projects: Project[] = []
   @State showCreate: boolean = false
+  @State deletionPending: boolean = false
   @State newName: string = ''
   @State selectedIcon: string = '📱'
 
@@ -44,7 +48,8 @@ struct Index {
           ForEach(this.projects, (p: Project) => {
             ListItem() {
               Row() {
-                Text(p.icon).fontSize(36).margin({ right: 14 })
+                Image(projectIconResource(p.icon))
+                  .width(44).height(44).objectFit(ImageFit.Contain).margin({ right: 14 })
                 Column() {
                   Text(p.name).fontSize(17).fontWeight(FontWeight.Medium)
                   Text(new Date(p.createdAt).toLocaleDateString())
@@ -90,16 +95,18 @@ struct Index {
               .margin({ bottom: 16 })
 
             Text('Icon').fontSize(14).fontColor('#666666').margin({ bottom: 8 })
-            Row() {
+            Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.Center }) {
               ForEach(ICONS, (icon: string) => {
-                Text(icon)
-                  .fontSize(28)
+                Image(projectIconResource(icon))
+                  .width(40)
+                  .height(40)
+                  .objectFit(ImageFit.Contain)
                   .padding(6)
                   .backgroundColor(this.selectedIcon === icon ? '#E0E8FF' : '#00000000')
                   .borderRadius(8)
                   .onClick(() => { this.selectedIcon = icon })
               }, (icon: string) => icon)
-            }.width('100%').justifyContent(FlexAlign.SpaceAround)
+            }.width('100%')
 
             Row({ space: 12 }) {
               Button('Cancel')
@@ -162,12 +169,46 @@ struct Index {
         .backgroundColor('#FF3B30')
         .fontColor('#FFFFFF')
         .height('100%')
-        .onClick(() => {
-          store.deleteProject(id)
-          this.reload()
-          refreshForms()
-        })
+        .enabled(!this.deletionPending)
+        .onClick(() => { this.confirmDelete(id) })
     }.height('100%').padding({ left: 8 })
+  }
+
+  private confirmDelete(id: string): void {
+    let project = store.getProject(id)
+    if (project === null) { return }
+    this.getUIContext().showAlertDialog({
+      title: 'Delete mini-app?',
+      message: 'Delete "' + project.name + '" and all its saved versions and data? This cannot be undone.',
+      primaryButton: {
+        value: 'Cancel',
+        action: () => {}
+      },
+      secondaryButton: {
+        value: 'Delete',
+        fontColor: '#FF3B30',
+        action: () => { this.doDelete(id) }
+      }
+    })
+  }
+
+  private async doDelete(id: string): Promise<void> {
+    if (this.deletionPending) { return }
+    this.deletionPending = true
+    let context = (): common.UIAbilityContext => this.getUIContext().getHostContext() as common.UIAbilityContext
+    const status = await projectOperations.deleteProject(context, id)
+    this.deletionPending = false
+    this.reload()
+    refreshForms()
+    if (status !== ProjectOperationStatus.Success) {
+      const message = status === ProjectOperationStatus.ProjectDeletedShortcutRemovalFailed ?
+        'Mini-application was deleted, but its shortcut cannot be removed.' : 'Error deleting mini-app.'
+      try {
+        this.getUIContext().getPromptAction().showToast({ message: message })
+      } catch (toastError) {
+        console.error('Show deletion error failed: ' + (toastError as Error).message)
+      }
+    }
   }
 
   private doCreate(): void {

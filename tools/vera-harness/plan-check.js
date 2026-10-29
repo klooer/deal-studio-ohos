@@ -59,7 +59,7 @@ for (const label of fs.readdirSync(path.join(__dirname, 'compose'))) {
     assert.deepEqual(plan.open().map(s => s.id), comp.custom.map((_n, i) => 'custom.' + i), label)
     const source = P.assemblePlan(plan, true)
     assert.equal(source, c.assembleProgram(comp), label)
-    assert.equal(smokeRun(compileVeraSource(source)), '', label)
+    assert.equal(smokeRun(compileVeraSource(source), false), '', label)
     // Every slot that is filled names a component of the plan.
     for (const s of plan.slots) if (s.fill !== P.FILL_OPEN) assert.ok(s.by >= 0 && s.by < plan.components.length, label + ' ' + s.id)
   }

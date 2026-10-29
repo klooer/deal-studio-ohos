@@ -7,7 +7,7 @@ const {readSectionPick} = loadVera('VeraSectionCompose')
 function body(sections, vetoes) {
   const answers = {}
   sections.forEach((k, i) => { answers['section' + (i + 1)] = {choice: k, confidence: 0.9} })
-  const keys = ['needs_integration', 'needs_real_data', 'needs_search_or_form', 'needs_live_ticking', 'needs_multiple_counters', 'needs_logic']
+  const keys = ['needs_integration', 'needs_real_data', 'needs_search_or_form', 'needs_live_ticking', 'needs_multiple_counters', 'needs_multiple_series', 'needs_logic']
   keys.forEach(k => { answers['veto.' + k] = {noul: vetoes[k] === undefined ? 0 : vetoes[k]} })
   return JSON.stringify({answers})
 }
@@ -71,6 +71,11 @@ o = readSectionPick(withLayout(['search_list', 'none', 'none', 'none'], 'master_
 assert.deepEqual(kinds(o), ['filter_box', 'master_list', 'detail_view']); assert.equal(o.layout, 'master_detail')
 assert.equal(o.needsLogic, false)
 // log_report: the blocks of the shared-costs example, the vetoes its blocks cover, and the one they do not
+// several data series on one chart: a trend_chart draws one line, so the model finishes it (a soft veto, floored at 0.7)
+o = readSectionPick(body(['trend_chart', 'none'], {needs_multiple_series: 0.9}))
+assert.deepEqual(kinds(o), pad(['trend_chart', 'none'])); assert.equal(o.needsLogic, true); assert.match(o.note, /needs_multiple_series=0\.9/)
+o = readSectionPick(body(['trend_chart', 'none'], {needs_multiple_series: 0.6}))
+assert.equal(o.needsLogic, false, 'below the floor the single line stands')
 const LOG = ['record_log', 'number_strip', 'breakdown_table', 'series_chart', 'settle_up']
 const withVetoes = (sections, layout, vetoes) => {
   const b = JSON.parse(body(sections, vetoes))
@@ -189,4 +194,32 @@ assert.equal(low('filter_box', 0.35, {needs_search_or_form: 0.95}).sections, nul
   assert.deepEqual(kinds(o), ['filter_box', 'master_list', 'detail_view'])
 }
 
+// Only an answer about the service pauses the selector: not this request's own (a 400, a 401), but a throttle, a region refusal or a server error.
+{
+  const {pausesSelector} = loadVera('VeraSectionCompose')
+  for (const code of [429, 451, 500, 502, 503]) assert.equal(pausesSelector(code), true, String(code))
+  for (const code of [400, 401, 403, 404, 422]) assert.equal(pausesSelector(code), false, String(code))
+}
+// a failed call to Jev is not repeated for a minute: the first pays the timeout, the next ones go straight on
+{
+  const real = loadVera('VeraSectionCompose')
+  ;(async () => {
+    const first = await real.selectSections('grocery', 'key')
+    assert.match(first.note, /^none \(selector unreachable\)$/)
+    const second = await real.selectSections('grocery', 'key')
+    assert.match(second.note, /not asked again for a minute/)
+  })().catch(e => { console.error(e); process.exit(1) })
+}
+// The slots of sections chosen elsewhere are asked on their own and read the same way; unreadable answers are the defaults.
+{
+  const {buildSlotRequest, readSlotValues} = loadVera('VeraSectionCompose')
+  const body = JSON.parse(buildSlotRequest('a layover with directions', ['itinerary']))
+  const keys = Object.keys(body.questions)
+  assert.ok(keys.includes('section1.itinerary.navigate') && keys.includes('section1.itinerary.calendar'), keys.join(' '))
+  assert.equal(body.state, 'a layover with directions')
+  const yes = {answers: {'section1.itinerary.navigate': {noul: 0.9}, 'section1.itinerary.calendar': {noul: 0.2}}}
+  const read = readSlotValues(JSON.stringify(yes), ['itinerary'])[0]
+  assert.equal(read.get('__NAVIGATE_IDX__'), 'true'); assert.equal(read.get('__CALENDAR_IDX__'), 'false')
+  assert.equal(readSlotValues('not json', ['itinerary'])[0].get('__NAVIGATE_IDX__'), 'false')
+}
 console.log('section-pick-check: ok')

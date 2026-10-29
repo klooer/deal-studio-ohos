@@ -35,6 +35,8 @@ export class LiveNode {
   @Trace enabled: boolean = true
   @Trace commands: string = ''
   @Trace spinPeriodMs: number = 0
+  /** ui.Motion: when its animation began (Date.now()), -1 for none. Renderer state: never in the program, never copied from the node. */
+  @Trace motionStart: number = -1
   @Trace label: string = ''
   @Trace tickerId: string = ''
   @Trace columns: number = 1

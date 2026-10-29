@@ -5,6 +5,7 @@
  */
 
 import { CodeAsk } from './AgentCustom'
+import { AgentHost } from './AgentHost'
 import { repairPrompt, applyRepair } from '../VeraRepair'
 import { compileVeraSource, CompileError } from '../VeraCompiler'
 import { smokeRun } from '../VeraSmoke'
@@ -31,6 +32,49 @@ export function checkProgram(source: string): string {
   } catch (e) {
     return e instanceof CompileError ? (e as CompileError).message : (e as Error).message
   }
+}
+
+export class Settled {
+  /** The program as assembled, or as repaired when the repair worked. */
+  source: string = ''
+  /** Its bytecode; '' when it does not pass. */
+  vbc2: string = ''
+  /** What still fails, '' when the program passes. */
+  errors: string = ''
+  /** What repairing it did; null when it did not need it or there was no model to ask. */
+  repair: Repaired | null = null
+  /** Milliseconds the first check took. */
+  checkMs: number = 0
+  /** For the trace: how a repair went, '' when there was none. */
+  note: string = ''
+}
+
+/**
+ * An assembled program, checked -- compiled, then run once with every handler tapped -- and, if it fails, repaired by
+ * edits. Every program the agent or the blocks serve passes through here, whoever assembled it.
+ */
+export async function settleProgram(source: string, prompt: string, host: AgentHost): Promise<Settled> {
+  let out = new Settled()
+  out.source = source
+  let checkStart = Date.now()
+  out.errors = checkProgram(source)
+  out.checkMs = Date.now() - checkStart
+  // What the assembly got wrong is repaired by edits to it, not by building it again.
+  if (out.errors.length > 0 && host.askCode !== null && host.language.length > 0 && !host.cancelled()) {
+    host.status('Repairing the program...')
+    let repaired = await repairProgram(source, out.errors, prompt, host.language, host.askCode!)
+    out.repair = repaired
+    if (repaired.source.length > 0) {
+      out.source = repaired.source
+      out.vbc2 = repaired.vbc2
+      out.errors = ''
+      out.note = '; repaired by edits in ' + repaired.rounds.toString() + ' round(s)'
+    } else {
+      out.note = '; repair: ' + repaired.failed
+    }
+  }
+  if (out.errors.length === 0 && out.vbc2.length === 0) { out.vbc2 = compileVeraSource(out.source).vbc2 }
+  return out
 }
 
 export async function repairProgram(source: string, errors: string, prompt: string, language: string,

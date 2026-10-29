@@ -152,7 +152,7 @@ assert.equal(holesOf(['timer'], [new Map()]).length, 0, 'no answer for the slot:
   // Jev: the finish-action slot is what covers the integration veto
   const body = (slot, vetoes = {}) => {
     const answers = {section1: {choice: 'timer', confidence: 0.9}, 'section1.timer.finish_action': {noul: slot}}
-    for (const k of ['needs_integration', 'needs_real_data', 'needs_search_or_form', 'needs_live_ticking', 'needs_multiple_counters', 'needs_logic'])
+    for (const k of ['needs_integration', 'needs_real_data', 'needs_search_or_form', 'needs_live_ticking', 'needs_multiple_counters', 'needs_multiple_series', 'needs_logic'])
       answers['veto.' + k] = {noul: vetoes[k] || 0}
     return JSON.stringify({answers})
   }

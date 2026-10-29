@@ -1,4 +1,5 @@
-// Live prototype of VeraCompose.ets: sketch (DeepSeek, thinking off) -> Jev choices -> assembled VERA ->
+// Live prototype of VeraCompose.ets: the plan of needs (NeedsPlan.ets; DeepSeek, thinking off) -> Jev choices -> assembled VERA ->
+// (parts only: no choice between a part and a section; agent-run.js runs the whole of it) ->
 // the real compiler and VM. Needs the network: $ARKESTR_API_KEY for DeepSeek and $TYPESAFE_API_KEY for Jev.
 //
 //   node tools/vera-harness/compose-proto.js [-o OUTDIR] [-p PROMPTS.tsv] [-w] [label ...]
@@ -12,6 +13,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const {loadVera} = require('./source-loader')
 const compose = loadVera('VeraCompose')
+const needs = loadVera('NeedsPlan')
 const {compileVeraSource} = loadVera('VeraCompiler')
 const {VirtualMachine, deserializeVbc2, decodeRuntimeValue} = loadVera('VeraInterpreter')
 const {UiHostEnvironment, decodeVeraUi} = loadVera('VeraUi')
@@ -34,7 +36,7 @@ async function sketchOf(prompt) {
     headers: {'Content-Type': 'application/json', Authorization: 'Bearer ' + process.env.ARKESTR_API_KEY},
     body: JSON.stringify({model: 'deepseek-flash', stream: false, temperature: 0, max_tokens: 1500,
       thinking: {type: 'disabled'}, response_format: {type: 'json_object'},
-      messages: [{role: 'system', content: compose.SKETCH_PROMPT}, {role: 'user', content: prompt}]})})
+      messages: [{role: 'system', content: needs.NEEDS_PROMPT}, {role: 'user', content: prompt}]})})
   const body = await res.json()
   if (!res.ok) throw Error('DeepSeek HTTP ' + res.status + ' ' + JSON.stringify(body).slice(0, 200))
   return body.choices[0].message.content
@@ -117,7 +119,8 @@ function exercise(vbc2, sketch, comp) {
       const sketchText = await sketchOf(prompt)
       result.sketchMs = Date.now() - t
       fs.writeFileSync(path.join(dir, 'sketch.json'), sketchText)
-      const sketch = compose.parseSketch(sketchText)
+      const plan = needs.parseNeedsPlan(sketchText)
+      const sketch = plan === null ? null : needs.sketchFrom(plan)
       if (!sketch) throw Error('sketch did not parse')
       const request = compose.buildComposeRequest(prompt, sketch, widget)
       fs.writeFileSync(path.join(dir, 'jev-request.json'), JSON.stringify(JSON.parse(request), null, 2))

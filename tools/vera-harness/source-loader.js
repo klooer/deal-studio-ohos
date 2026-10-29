@@ -18,8 +18,8 @@ function loadSource(file) {
   const localRequire = name => {
     if (name.endsWith('/VeraSdkIndex')) return loadSource(path.join(__dirname, 'src/VeraSdkIndex.ts'))
     // Platform modules the template/selector files import for their network calls; the host checks never reach them.
-    if (name === '@ohos.hilog') return {info() {}, warn() {}, error() {}, debug() {}}
-    if (name === '@ohos.net.http') return {RequestMethod: {POST: 'POST'}, createHttp() { throw Error('network is not available in the host harness') }}
+    if (name === '@ohos.hilog') { const stub = {info() {}, warn() {}, error() {}, debug() {}}; stub.default = stub; return stub }
+    if (name === '@ohos.net.http') { const stub = {RequestMethod: {POST: 'POST', GET: 'GET'}, HttpProtocol: {HTTP1_1: 'http1.1'}, createHttp() { if (typeof globalThis.__veraHttp === 'function') return globalThis.__veraHttp(); return {on() {}, destroy() {}, request() { return Promise.reject(Object.assign(Error('network is not available in the host harness'), {code: 2300028})) }} }}; stub.default = stub; return stub }
     // Any other platform module is only touched when a network or file call is made, which host checks never do.
     if (name.startsWith('@ohos.') || name === 'libllama.so') return {}
     if (name.startsWith('.')) return loadSource(path.resolve(path.dirname(file), name + '.ets'))

@@ -31,6 +31,7 @@
 import storageStatistics from '@ohos.file.storageStatistics'
 import { AbilityContext } from './VeraPermissions'
 import { calendarSdkTargets, runCalendarSdkAdapter } from './VeraCalendarSdk'
+import { LIVE_TARGET, liveFetch } from './VeraLive'
 import camera from '@ohos.multimedia.camera'
 import audio from '@ohos.multimedia.audio'
 import fs from '@ohos.file.fs'
@@ -5395,6 +5396,8 @@ const ADAPTERS: Map<string, SdkAdapter> = new Map<string, SdkAdapter>([
  * reason a call hangs.
  */
 export async function runSdkAdapter(target: string, params: Map<string, string>): Promise<string> {
+  // The live-data block's own function (VeraLive.ets): not an SDK function, so not in ADAPTERS or the index.
+  if (target === LIVE_TARGET) { return await liveFetch(params) }
   if (calendarSdkTargets.indexOf(target) >= 0) {
     return await runCalendarSdkAdapter(target, params)
   }
@@ -5420,5 +5423,5 @@ export async function runSdkAdapter(target: string, params: Map<string, string>)
  * recall is still measured against everything the SDK has.
  */
 export function isSdkTargetImplemented(target: string): boolean {
-  return calendarSdkTargets.indexOf(target) >= 0 || ADAPTERS.has(target)
+  return calendarSdkTargets.indexOf(target) >= 0 || ADAPTERS.has(target) || target === LIVE_TARGET
 }

@@ -1,0 +1,1438 @@
+[
+{
+"id": "hf-01-terse",
+"intentId": "hf-01",
+"label": "coverage",
+"prompt": "Track my glasses of water against a daily goal.",
+"domain": "health/fitness",
+"split": "dev",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:counters",
+"reader:progress"
+],
+"outcome": "template"
+}
+},
+{
+"id": "hf-02-descriptive",
+"intentId": "hf-02",
+"label": "coverage",
+"prompt": "I want to enter each workout's date, activity, and minutes, then compare activity totals in a chart and see total exercise time.",
+"domain": "health/fitness",
+"split": "dev",
+"phrasing": "descriptive",
+"negative": false,
+"expect": {
+"roles": [
+"source:records",
+"reader:chart",
+"reader:summary"
+],
+"outcome": "template"
+}
+},
+{
+"id": "hf-02-terse",
+"intentId": "hf-02",
+"label": "coverage",
+"prompt": "Keep my workout minutes and graph them by activity.",
+"domain": "health/fitness",
+"split": "dev",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:records",
+"reader:chart",
+"reader:summary"
+],
+"outcome": "template"
+}
+},
+{
+"id": "hf-03-terse",
+"intentId": "hf-03",
+"label": "coverage",
+"prompt": "Calculate BMI from my height and weight.",
+"domain": "health/fitness",
+"split": "dev",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:numeric-inputs",
+"algorithm:formula",
+"reader:summary"
+],
+"outcome": "complete"
+}
+},
+{
+"id": "hf-04-descriptive",
+"intentId": "hf-04",
+"label": "coverage",
+"prompt": "I'd like somewhere to jot how I feel each day and see how many check-ins I've made. Nothing medical, just my own words.",
+"domain": "health/fitness",
+"split": "dev",
+"phrasing": "descriptive",
+"negative": false,
+"expect": {
+"roles": [
+"source:records",
+"reader:summary"
+],
+"outcome": "template"
+}
+},
+{
+"id": "hf-05-terse",
+"intentId": "hf-05",
+"label": "coverage",
+"prompt": "Mark my daily tablets taken and show my current streak.",
+"domain": "health/fitness",
+"split": "heldout",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:day-checks",
+"algorithm:streak",
+"reader:progress"
+],
+"outcome": "complete"
+}
+},
+{
+"id": "hf-05-descriptive",
+"intentId": "hf-05",
+"label": "coverage",
+"prompt": "I take one tablet a day. Let me tick the days I took it, correct missed ticks, and see consecutive completed days through today.",
+"domain": "health/fitness",
+"split": "heldout",
+"phrasing": "descriptive",
+"negative": false,
+"expect": {
+"roles": [
+"source:day-checks",
+"algorithm:streak",
+"reader:progress"
+],
+"outcome": "complete"
+}
+},
+{
+"id": "hf-06-descriptive",
+"intentId": "hf-06",
+"label": "coverage",
+"prompt": "Use the phone camera while I squat, count only full repetitions, and warn me immediately when my knees cave inward.",
+"domain": "health/fitness",
+"split": "heldout",
+"phrasing": "descriptive",
+"negative": true,
+"expect": {
+"roles": [
+"capability:camera-capture",
+"algorithm:motion-analysis",
+"reader:feedback"
+],
+"outcome": "scratch"
+}
+},
+{
+"id": "pf-01-terse",
+"intentId": "pf-01",
+"label": "coverage",
+"prompt": "Log my spending and chart it by category.",
+"domain": "personal finance",
+"split": "dev",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:records",
+"reader:chart",
+"reader:summary"
+],
+"outcome": "template"
+}
+},
+{
+"id": "pf-02-descriptive",
+"intentId": "pf-02",
+"label": "coverage",
+"prompt": "I'll enter my deposit target, current savings, and monthly contribution. Estimate whole months needed without interest, rounding up partial months.",
+"domain": "personal finance",
+"split": "dev",
+"phrasing": "descriptive",
+"negative": false,
+"expect": {
+"roles": [
+"source:numeric-inputs",
+"algorithm:formula",
+"reader:summary"
+],
+"outcome": "complete"
+}
+},
+{
+"id": "pf-02-terse",
+"intentId": "pf-02",
+"label": "coverage",
+"prompt": "Estimate how long it'll take me to save for a deposit.",
+"domain": "personal finance",
+"split": "dev",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:numeric-inputs",
+"algorithm:formula",
+"reader:summary"
+],
+"outcome": "complete"
+}
+},
+{
+"id": "pf-03-terse",
+"intentId": "pf-03",
+"label": "coverage",
+"prompt": "Work out who owes whom after our shared expenses.",
+"domain": "personal finance",
+"split": "dev",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:records",
+"algorithm:settlement",
+"reader:summary"
+],
+"outcome": "complete"
+}
+},
+{
+"id": "pf-04-descriptive",
+"intentId": "pf-04",
+"label": "coverage",
+"prompt": "Keep a list of bills with due-date notes. Let me mark each unpaid or paid and see how many still need attention.",
+"domain": "personal finance",
+"split": "dev",
+"phrasing": "descriptive",
+"negative": false,
+"expect": {
+"roles": [
+"source:staged-items",
+"reader:summary"
+],
+"outcome": "template"
+}
+},
+{
+"id": "pf-05-terse",
+"intentId": "pf-05",
+"label": "coverage",
+"prompt": "Compare the monthly and yearly costs of my subscriptions.",
+"domain": "personal finance",
+"split": "heldout",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:records",
+"algorithm:formula",
+"reader:summary"
+],
+"outcome": "complete"
+}
+},
+{
+"id": "pf-05-descriptive",
+"intentId": "pf-05",
+"label": "coverage",
+"prompt": "Enter each subscription's price and whether it's billed monthly or annually. Show equivalent monthly costs and the total annual commitment.",
+"domain": "personal finance",
+"split": "heldout",
+"phrasing": "descriptive",
+"negative": false,
+"expect": {
+"roles": [
+"source:records",
+"algorithm:formula",
+"reader:summary"
+],
+"outcome": "complete"
+}
+},
+{
+"id": "pf-06-descriptive",
+"intentId": "pf-06",
+"label": "coverage",
+"prompt": "Let me record cash put into or taken out of named envelopes, and show each envelope's balance and the total cash left.",
+"domain": "personal finance",
+"split": "heldout",
+"phrasing": "descriptive",
+"negative": false,
+"expect": {
+"roles": [
+"source:records",
+"reader:summary"
+],
+"outcome": "template"
+}
+},
+{
+"id": "pt-01-terse",
+"intentId": "pt-01",
+"label": "coverage",
+"prompt": "Move my work tasks from planned to doing to finished.",
+"domain": "productivity/tasks",
+"split": "dev",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:staged-items",
+"reader:summary"
+],
+"outcome": "template"
+}
+},
+{
+"id": "pt-02-descriptive",
+"intentId": "pt-02",
+"label": "coverage",
+"prompt": "I'll give each task a benefit score and estimated minutes. Put the highest benefit per minute first so I can choose worthwhile quick wins.",
+"domain": "productivity/tasks",
+"split": "dev",
+"phrasing": "descriptive",
+"negative": false,
+"expect": {
+"roles": [
+"source:records",
+"algorithm:ranking",
+"reader:ranked-list"
+],
+"outcome": "complete"
+}
+},
+{
+"id": "pt-02-terse",
+"intentId": "pt-02",
+"label": "coverage",
+"prompt": "Rank my tasks by payoff per minute.",
+"domain": "productivity/tasks",
+"split": "dev",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:records",
+"algorithm:ranking",
+"reader:ranked-list"
+],
+"outcome": "complete"
+}
+},
+{
+"id": "pt-03-terse",
+"intentId": "pt-03",
+"label": "coverage",
+"prompt": "Give me somewhere for all the things in my head.",
+"domain": "productivity/tasks",
+"split": "dev",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:records",
+"reader:summary"
+],
+"outcome": "template"
+},
+"note": "Vague, not negative; assumes a minimal editable idea inbox with an entry count, without inferred automation."
+},
+{
+"id": "pt-04-descriptive",
+"intentId": "pt-04",
+"label": "coverage",
+"prompt": "Make a focus music player for audio files on my phone, with play, pause, skip, playlist reordering, and remaining listening time.",
+"domain": "productivity/tasks",
+"split": "dev",
+"phrasing": "descriptive",
+"negative": true,
+"expect": {
+"roles": [
+"source:media-queue",
+"capability:audio-playback",
+"reader:summary"
+],
+"outcome": "scratch"
+}
+},
+{
+"id": "pt-05-terse",
+"intentId": "pt-05",
+"label": "coverage",
+"prompt": "Turn my freelance work hours into a billable total.",
+"domain": "productivity/tasks",
+"split": "heldout",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:records",
+"algorithm:formula",
+"reader:summary"
+],
+"outcome": "complete"
+}
+},
+{
+"id": "pt-05-descriptive",
+"intentId": "pt-05",
+"label": "coverage",
+"prompt": "Record hours worked on each client job and its hourly rate, then show each job's charge and the grand total. I enter hours manually.",
+"domain": "productivity/tasks",
+"split": "heldout",
+"phrasing": "descriptive",
+"negative": false,
+"expect": {
+"roles": [
+"source:records",
+"algorithm:formula",
+"reader:summary"
+],
+"outcome": "complete"
+}
+},
+{
+"id": "pt-06-descriptive",
+"intentId": "pt-06",
+"label": "coverage",
+"prompt": "Let me say which tasks must finish before others. Suggest a valid work order and flag circular dependencies instead of pretending they're possible.",
+"domain": "productivity/tasks",
+"split": "heldout",
+"phrasing": "descriptive",
+"negative": false,
+"expect": {
+"roles": [
+"source:dependency-graph",
+"algorithm:dependency-order",
+"reader:ordered-list"
+],
+"outcome": "complete"
+}
+},
+{
+"id": "hc-01-terse",
+"intentId": "hc-01",
+"label": "coverage",
+"prompt": "Help us keep on top of the housework.",
+"domain": "home/chores",
+"split": "dev",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:staged-items",
+"reader:progress"
+],
+"outcome": "template"
+},
+"note": "Vague, not negative; assumes a household chore list with completion progress, not automatic assignment or reminders."
+},
+{
+"id": "hc-02-descriptive",
+"intentId": "hc-02",
+"label": "coverage",
+"prompt": "I'll enter the original serving count and ingredient quantities. Let me choose a new serving count and see proportionally adjusted amounts in the same units.",
+"domain": "home/chores",
+"split": "dev",
+"phrasing": "descriptive",
+"negative": false,
+"expect": {
+"roles": [
+"source:numeric-inputs",
+"algorithm:formula",
+"reader:summary"
+],
+"outcome": "complete"
+}
+},
+{
+"id": "hc-02-terse",
+"intentId": "hc-02",
+"label": "coverage",
+"prompt": "Scale a recipe's ingredients for a different number of servings.",
+"domain": "home/chores",
+"split": "dev",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:numeric-inputs",
+"algorithm:formula",
+"reader:summary"
+],
+"outcome": "complete"
+}
+},
+{
+"id": "hc-03-terse",
+"intentId": "hc-03",
+"label": "coverage",
+"prompt": "Keep a history of repairs around my house.",
+"domain": "home/chores",
+"split": "dev",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:records",
+"reader:details",
+"reader:summary"
+],
+"outcome": "template"
+}
+},
+{
+"id": "hc-04-descriptive",
+"intentId": "hc-04",
+"label": "coverage",
+"prompt": "Stream my phone's camera to another device while I'm away, with quality settings and an estimate of hourly mobile data use.",
+"domain": "home/chores",
+"split": "dev",
+"phrasing": "descriptive",
+"negative": true,
+"expect": {
+"roles": [
+"capability:camera-capture",
+"capability:live-streaming",
+"algorithm:media-estimation"
+],
+"outcome": "scratch"
+}
+},
+{
+"id": "hc-05-terse",
+"intentId": "hc-05",
+"label": "coverage",
+"prompt": "Work out my electricity use and cost from meter readings.",
+"domain": "home/chores",
+"split": "heldout",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:records",
+"algorithm:formula",
+"reader:summary"
+],
+"outcome": "complete"
+}
+},
+{
+"id": "hc-05-descriptive",
+"intentId": "hc-05",
+"label": "coverage",
+"prompt": "Save dated electricity meter readings and a price per kWh. Show the usage between consecutive readings and its cost, without connecting to the meter.",
+"domain": "home/chores",
+"split": "heldout",
+"phrasing": "descriptive",
+"negative": false,
+"expect": {
+"roles": [
+"source:records",
+"algorithm:formula",
+"reader:summary"
+],
+"outcome": "complete"
+}
+},
+{
+"id": "hc-06-descriptive",
+"intentId": "hc-06",
+"label": "coverage",
+"prompt": "Enter housemates and cleaning jobs with estimated minutes. Assign whole jobs to keep each person's total workload as even as practical, then show assignments.",
+"domain": "home/chores",
+"split": "heldout",
+"phrasing": "descriptive",
+"negative": false,
+"expect": {
+"roles": [
+"source:records",
+"algorithm:balanced-allocation",
+"reader:assignment"
+],
+"outcome": "complete"
+}
+},
+{
+"id": "tp-01-terse",
+"intentId": "tp-01",
+"label": "coverage",
+"prompt": "Save places I want to visit and search my notes about them.",
+"domain": "travel/places",
+"split": "dev",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:catalog",
+"reader:search",
+"reader:details",
+"reader:summary"
+],
+"outcome": "template"
+}
+},
+{
+"id": "tp-02-descriptive",
+"intentId": "tp-02",
+"label": "coverage",
+"prompt": "I'll enter the places and visit times for a day out. Show them in time order, let me mark each visited, and show progress without routing.",
+"domain": "travel/places",
+"split": "dev",
+"phrasing": "descriptive",
+"negative": false,
+"expect": {
+"roles": [
+"source:schedule",
+"reader:ordered-list",
+"reader:progress"
+],
+"outcome": "template"
+}
+},
+{
+"id": "tp-02-terse",
+"intentId": "tp-02",
+"label": "coverage",
+"prompt": "Keep my sightseeing day in order and tick off stops.",
+"domain": "travel/places",
+"split": "dev",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:schedule",
+"reader:ordered-list",
+"reader:progress"
+],
+"outcome": "template"
+}
+},
+{
+"id": "tp-03-terse",
+"intentId": "tp-03",
+"label": "coverage",
+"prompt": "Convert my trip costs into my home currency using rates I enter.",
+"domain": "travel/places",
+"split": "dev",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:records",
+"algorithm:formula",
+"reader:summary"
+],
+"outcome": "complete"
+}
+},
+{
+"id": "tp-04-descriptive",
+"intentId": "tp-04",
+"label": "coverage",
+"prompt": "Show a moving map while I drive, fetch current congestion, reroute around delays, and continuously update spoken turns and arrival time.",
+"domain": "travel/places",
+"split": "dev",
+"phrasing": "descriptive",
+"negative": true,
+"expect": {
+"roles": [
+"capability:live-location",
+"capability:traffic-routing",
+"reader:map"
+],
+"outcome": "scratch"
+}
+},
+{
+"id": "tp-05-terse",
+"intentId": "tp-05",
+"label": "coverage",
+"prompt": "Check my suitcase weight against the airline allowance.",
+"domain": "travel/places",
+"split": "heldout",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:records",
+"algorithm:formula",
+"reader:progress"
+],
+"outcome": "complete"
+}
+},
+{
+"id": "tp-05-descriptive",
+"intentId": "tp-05",
+"label": "coverage",
+"prompt": "Enter the empty bag weight and each packed item's weight, all in kilograms. Show total weight and how far below or above my chosen limit it is.",
+"domain": "travel/places",
+"split": "heldout",
+"phrasing": "descriptive",
+"negative": false,
+"expect": {
+"roles": [
+"source:records",
+"algorithm:formula",
+"reader:progress"
+],
+"outcome": "complete"
+}
+},
+{
+"id": "tp-06-descriptive",
+"intentId": "tp-06",
+"label": "coverage",
+"prompt": "Save my odometer and litres at each full-tank refill. From the second refill onward, show distance since the previous fill and litres per 100 km.",
+"domain": "travel/places",
+"split": "heldout",
+"phrasing": "descriptive",
+"negative": false,
+"expect": {
+"roles": [
+"source:records",
+"algorithm:formula",
+"reader:summary"
+],
+"outcome": "complete"
+}
+},
+{
+"id": "el-01-terse",
+"intentId": "el-01",
+"label": "coverage",
+"prompt": "Track books I plan to read, am reading, or have finished.",
+"domain": "education/learning",
+"split": "dev",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:staged-items",
+"reader:progress"
+],
+"outcome": "template"
+}
+},
+{
+"id": "el-02-descriptive",
+"intentId": "el-02",
+"label": "coverage",
+"prompt": "Use a small vocabulary deck, one word at a time. Reveal its meaning, let me mark knew it or didn't know it, and show my score before restarting.",
+"domain": "education/learning",
+"split": "dev",
+"phrasing": "descriptive",
+"negative": false,
+"expect": {
+"roles": [
+"source:questions",
+"algorithm:scoring",
+"reader:progress"
+],
+"outcome": "template"
+}
+},
+{
+"id": "el-02-terse",
+"intentId": "el-02",
+"label": "coverage",
+"prompt": "Drill me on vocabulary cards and count the words I know.",
+"domain": "education/learning",
+"split": "dev",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:questions",
+"algorithm:scoring",
+"reader:progress"
+],
+"outcome": "template"
+}
+},
+{
+"id": "el-03-terse",
+"intentId": "el-03",
+"label": "coverage",
+"prompt": "Calculate my course grade with weighted assessments.",
+"domain": "education/learning",
+"split": "dev",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:numeric-inputs",
+"algorithm:formula",
+"reader:summary"
+],
+"outcome": "complete"
+}
+},
+{
+"id": "el-04-descriptive",
+"intentId": "el-04",
+"label": "coverage",
+"prompt": "After studying, I'll enter the subject, date, and minutes. Show total study time and a chart of how those minutes are distributed across subjects.",
+"domain": "education/learning",
+"split": "dev",
+"phrasing": "descriptive",
+"negative": false,
+"expect": {
+"roles": [
+"source:records",
+"reader:chart",
+"reader:summary"
+],
+"outcome": "template"
+}
+},
+{
+"id": "el-05-terse",
+"intentId": "el-05",
+"label": "coverage",
+"prompt": "Schedule revision at growing intervals after I learn a topic.",
+"domain": "education/learning",
+"split": "heldout",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:records",
+"algorithm:review-scheduling",
+"reader:ordered-list"
+],
+"outcome": "complete"
+}
+},
+{
+"id": "el-05-descriptive",
+"intentId": "el-05",
+"label": "coverage",
+"prompt": "Save a topic and its learning date. Schedule reviews one, three, and seven days later, and show upcoming reviews in date order without sending notifications.",
+"domain": "education/learning",
+"split": "heldout",
+"phrasing": "descriptive",
+"negative": false,
+"expect": {
+"roles": [
+"source:records",
+"algorithm:review-scheduling",
+"reader:ordered-list"
+],
+"outcome": "complete"
+}
+},
+{
+"id": "el-06-descriptive",
+"intentId": "el-06",
+"label": "coverage",
+"prompt": "Record me reading French phrases, identify which sounds I mispronounce, and give a pronunciation score with feedback for each phrase.",
+"domain": "education/learning",
+"split": "heldout",
+"phrasing": "descriptive",
+"negative": true,
+"expect": {
+"roles": [
+"capability:audio-capture",
+"algorithm:pronunciation-analysis",
+"reader:feedback"
+],
+"outcome": "scratch"
+}
+},
+{
+"id": "gs-01-terse",
+"intentId": "gs-01",
+"label": "coverage",
+"prompt": "Keep two players' darts scores as we count down from 301.",
+"domain": "games/scores",
+"split": "dev",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:counters",
+"reader:summary"
+],
+"outcome": "template"
+}
+},
+{
+"id": "gs-02-descriptive",
+"intentId": "gs-02",
+"label": "coverage",
+"prompt": "After each card-game round, enter the points each player earned. Keep the round history and show each player's running total in a comparison chart.",
+"domain": "games/scores",
+"split": "dev",
+"phrasing": "descriptive",
+"negative": false,
+"expect": {
+"roles": [
+"source:records",
+"reader:chart",
+"reader:summary"
+],
+"outcome": "template"
+}
+},
+{
+"id": "gs-02-terse",
+"intentId": "gs-02",
+"label": "coverage",
+"prompt": "Record our card-game rounds and chart each player's total points.",
+"domain": "games/scores",
+"split": "dev",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:records",
+"reader:chart",
+"reader:summary"
+],
+"outcome": "template"
+}
+},
+{
+"id": "gs-03-terse",
+"intentId": "gs-03",
+"label": "coverage",
+"prompt": "Make a short geography trivia game with a final score.",
+"domain": "games/scores",
+"split": "dev",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:questions",
+"algorithm:scoring",
+"reader:progress"
+],
+"outcome": "template"
+}
+},
+{
+"id": "gs-04-descriptive",
+"intentId": "gs-04",
+"label": "coverage",
+"prompt": "Build a chessboard for two friends on different phones, enforce legal moves, sync turns live, and show a clock for each player.",
+"domain": "games/scores",
+"split": "dev",
+"phrasing": "descriptive",
+"negative": true,
+"expect": {
+"roles": [
+"source:game-state",
+"algorithm:game-rules",
+"capability:multiplayer-sync",
+"reader:game-board"
+],
+"outcome": "scratch"
+}
+},
+{
+"id": "gs-05-terse",
+"intentId": "gs-05",
+"label": "coverage",
+"prompt": "Arrange a round-robin tournament so everyone plays everyone once.",
+"domain": "games/scores",
+"split": "heldout",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:participants",
+"algorithm:round-robin",
+"reader:ordered-list"
+],
+"outcome": "complete"
+}
+},
+{
+"id": "gs-05-descriptive",
+"intentId": "gs-05",
+"label": "coverage",
+"prompt": "Enter player names and produce rounds where each pair meets exactly once and nobody plays twice in one round. Include byes for odd numbers.",
+"domain": "games/scores",
+"split": "heldout",
+"phrasing": "descriptive",
+"negative": false,
+"expect": {
+"roles": [
+"source:participants",
+"algorithm:round-robin",
+"reader:ordered-list"
+],
+"outcome": "complete"
+}
+},
+{
+"id": "gs-06-descriptive",
+"intentId": "gs-06",
+"label": "coverage",
+"prompt": "Let me choose how many sides each of two fair dice has. Show every possible sum with its number of outcomes and probability, without simulation.",
+"domain": "games/scores",
+"split": "heldout",
+"phrasing": "descriptive",
+"negative": false,
+"expect": {
+"roles": [
+"source:numeric-inputs",
+"algorithm:probability",
+"reader:distribution"
+],
+"outcome": "complete"
+}
+},
+{
+"id": "sc-01-terse",
+"intentId": "sc-01",
+"label": "coverage",
+"prompt": "Keep a searchable directory of my club members.",
+"domain": "social/contacts",
+"split": "dev",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:catalog",
+"reader:search",
+"reader:details",
+"reader:summary"
+],
+"outcome": "template"
+}
+},
+{
+"id": "sc-02-descriptive",
+"intentId": "sc-02",
+"label": "coverage",
+"prompt": "List people with a short reason to call. Mark each waiting, tried, or reached and show counts for each status; I'll make the calls myself.",
+"domain": "social/contacts",
+"split": "dev",
+"phrasing": "descriptive",
+"negative": false,
+"expect": {
+"roles": [
+"source:staged-items",
+"reader:summary"
+],
+"outcome": "template"
+}
+},
+{
+"id": "sc-02-terse",
+"intentId": "sc-02",
+"label": "coverage",
+"prompt": "Track people I need to call back.",
+"domain": "social/contacts",
+"split": "dev",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:staged-items",
+"reader:summary"
+],
+"outcome": "template"
+}
+},
+{
+"id": "sc-03-terse",
+"intentId": "sc-03",
+"label": "coverage",
+"prompt": "Keep track of who's coming to my dinner.",
+"domain": "social/contacts",
+"split": "dev",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:staged-items",
+"reader:summary"
+],
+"outcome": "template"
+}
+},
+{
+"id": "sc-04-descriptive",
+"intentId": "sc-04",
+"label": "coverage",
+"prompt": "Make a group video-calling app where relatives join from different devices, see and hear one another, mute themselves, and see how long the call has lasted.",
+"domain": "social/contacts",
+"split": "dev",
+"phrasing": "descriptive",
+"negative": true,
+"expect": {
+"roles": [
+"capability:camera-capture",
+"capability:audio-capture",
+"capability:live-streaming",
+"source:participants",
+"reader:summary"
+],
+"outcome": "scratch"
+}
+},
+{
+"id": "sc-05-terse",
+"intentId": "sc-05",
+"label": "coverage",
+"prompt": "Remember gifts I've given people and what I spent.",
+"domain": "social/contacts",
+"split": "heldout",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:records",
+"reader:details",
+"reader:summary"
+],
+"outcome": "template"
+}
+},
+{
+"id": "sc-05-descriptive",
+"intentId": "sc-05",
+"label": "coverage",
+"prompt": "Keep gifts with recipient, occasion, date, description, and cost. Let me revisit each entry and see total spending per person so I don't forget past gifts.",
+"domain": "social/contacts",
+"split": "heldout",
+"phrasing": "descriptive",
+"negative": false,
+"expect": {
+"roles": [
+"source:records",
+"reader:details",
+"reader:summary"
+],
+"outcome": "template"
+}
+},
+{
+"id": "sc-06-descriptive",
+"intentId": "sc-06",
+"label": "coverage",
+"prompt": "Record who hosted each group dinner. Recommend the next host by fewest past turns, breaking ties by who hosted least recently, with never-hosted people first.",
+"domain": "social/contacts",
+"split": "heldout",
+"phrasing": "descriptive",
+"negative": false,
+"expect": {
+"roles": [
+"source:records",
+"algorithm:fair-rotation",
+"reader:ranked-list"
+],
+"outcome": "complete"
+}
+},
+{
+"id": "si-01-terse",
+"intentId": "si-01",
+"label": "coverage",
+"prompt": "Make a grocery list I can tick off at the shop.",
+"domain": "shopping/inventory",
+"split": "dev",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:staged-items",
+"reader:progress"
+],
+"outcome": "template"
+}
+},
+{
+"id": "si-02-descriptive",
+"intentId": "si-02",
+"label": "coverage",
+"prompt": "Give each pantry product a quantity. Let me add purchases, subtract what I use, correct mistakes, and see quantities per product and total units.",
+"domain": "shopping/inventory",
+"split": "dev",
+"phrasing": "descriptive",
+"negative": false,
+"expect": {
+"roles": [
+"source:counters",
+"reader:summary"
+],
+"outcome": "template"
+}
+},
+{
+"id": "si-02-terse",
+"intentId": "si-02",
+"label": "coverage",
+"prompt": "Keep counts of the tins and packets in my pantry.",
+"domain": "shopping/inventory",
+"split": "dev",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:counters",
+"reader:summary"
+],
+"outcome": "template"
+}
+},
+{
+"id": "si-03-terse",
+"intentId": "si-03",
+"label": "coverage",
+"prompt": "Compare package prices per kilogram to find the better deal.",
+"domain": "shopping/inventory",
+"split": "dev",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:numeric-inputs",
+"algorithm:formula",
+"reader:comparison"
+],
+"outcome": "complete"
+}
+},
+{
+"id": "si-04-descriptive",
+"intentId": "si-04",
+"label": "coverage",
+"prompt": "List my tools with a borrower note. Mark each available or lent out, change it when returned, and show how many are away and available.",
+"domain": "shopping/inventory",
+"split": "dev",
+"phrasing": "descriptive",
+"negative": false,
+"expect": {
+"roles": [
+"source:staged-items",
+"reader:summary"
+],
+"outcome": "template"
+}
+},
+{
+"id": "si-05-terse",
+"intentId": "si-05",
+"label": "coverage",
+"prompt": "Record T-shirt stock movements and compare quantities by size.",
+"domain": "shopping/inventory",
+"split": "heldout",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:records",
+"reader:chart",
+"reader:summary"
+],
+"outcome": "template"
+}
+},
+{
+"id": "si-05-descriptive",
+"intentId": "si-05",
+"label": "coverage",
+"prompt": "For my stall, log incoming and sold T-shirts by size as positive and negative quantities. Show each size's balance, a size comparison chart, and total stock.",
+"domain": "shopping/inventory",
+"split": "heldout",
+"phrasing": "descriptive",
+"negative": false,
+"expect": {
+"roles": [
+"source:records",
+"reader:chart",
+"reader:summary"
+],
+"outcome": "template"
+}
+},
+{
+"id": "si-06-descriptive",
+"intentId": "si-06",
+"label": "coverage",
+"prompt": "Point the camera at a barcode, identify the product online, fetch its current price at nearby shops, and rank the offers by price.",
+"domain": "shopping/inventory",
+"split": "heldout",
+"phrasing": "descriptive",
+"negative": true,
+"expect": {
+"roles": [
+"capability:barcode-capture",
+"capability:live-product-lookup",
+"algorithm:ranking",
+"reader:comparison"
+],
+"outcome": "scratch"
+}
+},
+{
+"id": "ts-01-terse",
+"intentId": "ts-01",
+"label": "coverage",
+"prompt": "Alternate focus and break countdowns for a set number of rounds.",
+"domain": "time/scheduling",
+"split": "dev",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:duration",
+"algorithm:interval-sequence",
+"reader:progress"
+],
+"outcome": "complete"
+}
+},
+{
+"id": "ts-02-descriptive",
+"intentId": "ts-02",
+"label": "coverage",
+"prompt": "Enter an event name and date. Show whole calendar days from today until it, display today on the date itself, and say days ago afterward.",
+"domain": "time/scheduling",
+"split": "dev",
+"phrasing": "descriptive",
+"negative": false,
+"expect": {
+"roles": [
+"source:dated-event",
+"algorithm:time-arithmetic",
+"reader:summary"
+],
+"outcome": "complete"
+}
+},
+{
+"id": "ts-02-terse",
+"intentId": "ts-02",
+"label": "coverage",
+"prompt": "Count the days until a date I'm looking forward to.",
+"domain": "time/scheduling",
+"split": "dev",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:dated-event",
+"algorithm:time-arithmetic",
+"reader:summary"
+],
+"outcome": "complete"
+}
+},
+{
+"id": "ts-03-terse",
+"intentId": "ts-03",
+"label": "coverage",
+"prompt": "Help me make sense of my day.",
+"domain": "time/scheduling",
+"split": "dev",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:schedule",
+"reader:ordered-list",
+"reader:summary"
+],
+"outcome": "template"
+},
+"note": "Vague, not negative; assumes a manually maintained time-ordered day plan and appointment count, without calendar access or optimisation."
+},
+{
+"id": "ts-04-descriptive",
+"intentId": "ts-04",
+"label": "coverage",
+"prompt": "Enter each shift's start and end date and time, unpaid break minutes, and hourly rate. Show paid hours and earnings, including overnight shifts, without tax calculations.",
+"domain": "time/scheduling",
+"split": "dev",
+"phrasing": "descriptive",
+"negative": false,
+"expect": {
+"roles": [
+"source:records",
+"algorithm:time-arithmetic",
+"algorithm:formula",
+"reader:summary"
+],
+"outcome": "complete"
+}
+},
+{
+"id": "ts-05-terse",
+"intentId": "ts-05",
+"label": "coverage",
+"prompt": "Convert a call time between time zones using offsets I enter.",
+"domain": "time/scheduling",
+"split": "heldout",
+"phrasing": "terse",
+"negative": false,
+"expect": {
+"roles": [
+"source:dated-event",
+"source:numeric-inputs",
+"algorithm:time-arithmetic",
+"reader:comparison"
+],
+"outcome": "complete"
+}
+},
+{
+"id": "ts-05-descriptive",
+"intentId": "ts-05",
+"label": "coverage",
+"prompt": "I'll enter a call's date and time and the two UTC offsets for that date. Show the corresponding destination date and time without automatically resolving daylight saving.",
+"domain": "time/scheduling",
+"split": "heldout",
+"phrasing": "descriptive",
+"negative": false,
+"expect": {
+"roles": [
+"source:dated-event",
+"source:numeric-inputs",
+"algorithm:time-arithmetic",
+"reader:comparison"
+],
+"outcome": "complete"
+}
+},
+{
+"id": "ts-06-descriptive",
+"intentId": "ts-06",
+"label": "coverage",
+"prompt": "Let me enter appointment start and end times for one day. List conflicting pairs and overlapping minutes; appointments that merely touch at an endpoint aren't conflicts.",
+"domain": "time/scheduling",
+"split": "heldout",
+"phrasing": "descriptive",
+"negative": false,
+"expect": {
+"roles": [
+"source:schedule",
+"algorithm:overlap-detection",
+"reader:conflicts"
+],
+"outcome": "complete"
+}
+}
+]

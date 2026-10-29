@@ -47,7 +47,7 @@ const text = (h, st) => strings(h.vm, st).join('|')
 const h = build(['itinerary', 'progress_line'], ON)
 let st = h.vm.execute('init')
 let s = text(h, st)
-assert.match(s, /09:00 - 10:30 \| 90 min \| 31\.2397, 121\.4900/); assert.match(s, /10:45 - 12:00 \| 75 min/); assert.match(s, /12:15 - 13:15 \| 60 min/)
+assert.match(s, /09:00 - 10:30 \| 90 min(?!.*31\.2397)/); assert.match(s, /10:45 - 12:00 \| 75 min/); assert.match(s, /12:15 - 13:15 \| 60 min/)
 assert.match(s, /0 of 3/, 'progress_line reads done and total')
 assert.deepEqual(bindPorts(['itinerary', 'progress_line'])[1].get('__PORT_done__'), 'reachedCount1(state)')
 

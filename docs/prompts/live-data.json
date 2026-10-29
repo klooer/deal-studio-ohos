@@ -1,0 +1,122 @@
+[
+ {
+  "id": "live-00",
+  "prompt": "usd rub exchange rate",
+  "group": "live",
+  "expect": "live_facts"
+ },
+ {
+  "id": "live-01",
+  "prompt": "keep me updated on the dollar to ruble rate",
+  "group": "live",
+  "expect": "live_facts"
+ },
+ {
+  "id": "live-02",
+  "prompt": "bitcoin price live",
+  "group": "live",
+  "expect": "live_facts"
+ },
+ {
+  "id": "live-03",
+  "prompt": "what is the weather today",
+  "group": "live",
+  "expect": "live_facts"
+ },
+ {
+  "id": "live-04",
+  "prompt": "current gold price",
+  "group": "live",
+  "expect": "live_facts"
+ },
+ {
+  "id": "live-05",
+  "prompt": "live score of the football match",
+  "group": "live",
+  "expect": "live_facts"
+ },
+ {
+  "id": "live-06",
+  "prompt": "track the EUR/USD rate",
+  "group": "live",
+  "expect": "live_facts"
+ },
+ {
+  "id": "live-07",
+  "prompt": "show me the current temperature in Moscow",
+  "group": "live",
+  "expect": "live_facts"
+ },
+ {
+  "id": "live-08",
+  "prompt": "USD/RUB",
+  "group": "live",
+  "expect": "live_facts"
+ },
+ {
+  "id": "live-09",
+  "prompt": "how much is a dollar in rubles right now",
+  "group": "live",
+  "expect": "live_facts"
+ },
+ {
+  "id": "static-00",
+  "prompt": "key facts about the Eiffel tower",
+  "group": "static",
+  "expect": "not live_facts"
+ },
+ {
+  "id": "static-01",
+  "prompt": "a card with my wifi password",
+  "group": "static",
+  "expect": "not live_facts"
+ },
+ {
+  "id": "static-02",
+  "prompt": "three facts about dogs",
+  "group": "static",
+  "expect": "not live_facts"
+ },
+ {
+  "id": "static-03",
+  "prompt": "a note with my home address",
+  "group": "static",
+  "expect": "not live_facts"
+ },
+ {
+  "id": "guard-00",
+  "prompt": "tip calc",
+  "group": "guard",
+  "expect": "not live_facts"
+ },
+ {
+  "id": "guard-01",
+  "prompt": "pomodoro timer",
+  "group": "guard",
+  "expect": "not live_facts"
+ },
+ {
+  "id": "guard-02",
+  "prompt": "grocery list",
+  "group": "guard",
+  "expect": "not live_facts"
+ },
+ {
+  "id": "guard-03",
+  "prompt": "track my glasses of water",
+  "group": "guard",
+  "expect": "not live_facts"
+ },
+ {
+  "id": "guard-04",
+  "prompt": "navigate to the nearest pharmacy",
+  "group": "guard",
+  "expect": "not live_facts"
+ },
+ {
+  "id": "guard-05",
+  "prompt": "bmi calculator",
+  "group": "guard",
+  "expect": "not live_facts"
+ }
+]

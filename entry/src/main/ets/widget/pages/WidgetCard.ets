@@ -1,4 +1,4 @@
-// VERA home-screen card. Tap a project row to open it in the app.
+// VERA home-screen card. Tap to run the latest version, or open its project if unavailable.
 // Binding data (injected via LocalStorage): { count, hasProjects, projects: [{id, name, icon}] }
 let widgetStorage = new LocalStorage()
 
@@ -31,7 +31,13 @@ struct WidgetCard {
           .width('100%')
           .padding({ left: 12, right: 12, top: 8, bottom: 8 })
           .onClick(() => {
-            postCardAction(this, { 'action': 'message', 'params': { 'projectId': project['id'] } })
+            // Navigation is a router action: a message callback runs in the
+            // background form extension, whose startAbility can be denied.
+            postCardAction(this, {
+              'action': 'router',
+              'abilityName': 'EntryAbility',
+              'params': { 'projectId': project['id'], 'veraRun': '1' }
+            })
           })
         }, (project: Record<string, string>) => project['id'])
       } else {

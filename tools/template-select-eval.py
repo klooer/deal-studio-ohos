@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Live-Jev precision check for the canned-template selector
-(entry/src/main/ets/vera/VeraTemplateSelect.ets + VeraTemplates.ets).
+(a hand transcription of the two-template selector that VeraTemplateSelect.ets held until it was removed).
 
 This is a host-side harness, but unlike the SDK/UI selectors' eval scripts it
 cannot replay anything locally: Jev's judgement is exactly what is under
@@ -13,10 +13,9 @@ and gating logic (templates, slots, veto questions, PICK_ABOVE, and each
 veto's own `above` bar -- VetoSpec.above in VeraTemplates.ets, not one shared
 constant; the gold-set sweep that produced this script's VETOES list found no
 single cutoff separates every question's true-accept distribution from its
-true-reject distribution at once). If VeraTemplates.ets or
-VeraTemplateSelect.ets changes -- new template, new slot, new veto wording,
-new per-veto threshold -- this has to change with it, the same risk
-tools/prompt-coverage.py's header carries for VeraIntentRegistry.ets.
+true-reject distribution at once). The app no longer has that selector (the app picks sections through
+VeraSectionCompose.ets), so this script is a frozen record of the measurement behind the per-veto
+thresholds in VeraTemplates.ets and no longer tracks the app.
 
 Usage:
     export TYPESAFE_API_KEY=sk-...

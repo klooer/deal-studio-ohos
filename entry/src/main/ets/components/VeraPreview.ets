@@ -26,6 +26,9 @@ import { ResolvedTheme, resolveTheme, containerFill, toneFill, toneEdge, toneInk
 import { store } from '../vera/ProjectStore'
 import { consent } from '../vera/VeraConsentStore'
 import { LiveNode, toLive, reconcile } from './VeraLiveTree'
+import { MotionPose, motionPose, motionDuration, poseMatrix, poseFromArray, multiplyMatrices, identityMatrix, perspectiveMatrix,
+  columnMajor, poseToPixels, facesViewer, samePose, animatedPose, stageDistance, faceShade, depthRanks } from '../vera/VeraMotion'
+import matrix4 from '@ohos.matrix4'
 
 /**
  * The rotation of every spinning shape on screen.
@@ -38,6 +41,46 @@ import { LiveNode, toLive, reconcile } from './VeraLiveTree'
 @ObservedV2
 class SpinAngle {
   @Trace angle: number = 0
+}
+
+/**
+ * The clock of every ui.Motion on screen: the current time, advanced from a timer while any animation is running.
+ * Observed for the same reason SpinAngle is: the motion branch of renderNode reads it, so mutating it redraws that branch.
+ */
+@ObservedV2
+class MotionClock {
+  @Trace now: number = 0
+}
+
+/** The glide of one ui.Transform: from the pose it had when the program changed its numbers to the new ones. */
+class PoseAnim {
+  from: number[]
+  to: number[]
+  start: number
+  duration: number
+  constructor(from: number[], to: number[], start: number, duration: number) {
+    this.from = from; this.to = to; this.start = start; this.duration = duration
+  }
+}
+
+/** One drawn layer of a scene: the node whose children are its content, and what the pose made of it this frame. */
+class SceneLayer {
+  node: LiveNode
+  side: number = 0
+  shade: number = 1
+  depth: number = 0
+  rank: number = 0
+  matrix: number[]
+  opacity: number
+  visible: boolean
+  constructor(node: LiveNode, matrix: number[], opacity: number, visible: boolean) {
+    this.node = node; this.matrix = matrix; this.opacity = opacity; this.visible = visible
+  }
+}
+
+class SceneFrame {
+  at: number = -1
+  layers: SceneLayer[] = []
 }
 
 /**
@@ -199,6 +242,8 @@ export struct VeraPreview {
    * size once it does.
    */
   @State sparklineWidth: number = 0
+  /** Width of the y-axis caption column, so the x-axis captions start where the plotting box does. */
+  @State sparklineAxisWidth: number = 0
   @State canvasWidth: number = 0
   /**
    * The call waiting for the person to allow it, and the calls queued behind it.
@@ -216,6 +261,12 @@ export struct VeraPreview {
   @State pending: HostEffect | null = null
   private heldEffects: HostEffect[] = []
   private spinTimer: number = -1
+  private motionClock: MotionClock = new MotionClock()
+  private motionTimer: number = -1
+  /** The trigger each Motion had when last seen, by its place in the tree; a change starts its animation. */
+  private motionTriggers: Map<string, number> = new Map<string, number>()
+  private poseAnims: Map<LiveNode, PoseAnim> = new Map<LiveNode, PoseAnim>()
+  private sceneFrames: Map<LiveNode, SceneFrame> = new Map<LiveNode, SceneFrame>()
   private spinPeriod: number = 0
 
   // Kinds renderNode has a branch for. Checked against the catalogue on mount so
@@ -223,13 +274,13 @@ export struct VeraPreview {
   // discovered as a blank space in someone's generated app.
   private static RENDERED: string[] = ['column', 'scroll', 'row', 'card', 'text',
     'button', 'cell', 'spacer', 'path', 'image', 'field', 'toggle', 'checkbox',
-    'slider', 'select', 'divider', 'progress', 'ticker', 'grid', 'listitem', 'canvas',
+    'slider', 'select', 'divider', 'progress', 'progressring', 'ticker', 'grid', 'listitem', 'canvas',
     'apptheme', 'hero', 'adaptivecolumns', 'header', 'section', 'sectionheader', 'listgroup', 'banner',
-    'emptystate', 'stat', 'metricgroup',
+    'emptystate', 'stat', 'metricgroup', 'tilegrid', 'tile',
     'numbertext', 'numberstat', 'numberfield', 'timefield', 'numberlistitem', 'actionbar',
     'kvgroup', 'kvitem', 'icon', 'iconbutton', 'badge', 'clocktext',
     'timeline', 'timelineitem', 'skeleton', 'spinner', 'snackbar', 'sparkline', 'backhandler',
-    'table', 'tablerow']
+    'table', 'tablerow', 'motion', 'transform', 'stage']
 
   aboutToAppear(): void {
     let missing: string[] = []
@@ -353,6 +404,189 @@ export struct VeraPreview {
     }, 50)
   }
 
+  /**
+   * Start the arrival animation of every Motion whose trigger changed and the glide of every Transform whose pose changed, and
+   * keep the clock running until the last one ends.
+   *
+   * The first time either is seen it only records itself, so a screen never animates on opening. A Motion's identity is its
+   * place in the tree; a Transform's is its node (reconcile keeps a node across frames), and a glide that is retargeted
+   * mid-flight continues from the pose being shown, so nothing jumps.
+   */
+  private reconcileMotion(): void {
+    let root = this.liveRoot
+    if (root === null) { return }
+    let now = Date.now()
+    let next: Map<LiveNode, PoseAnim> = new Map<LiveNode, PoseAnim>()
+    let started = this.visitMotion(root!, '', now, next)
+    this.poseAnims = next
+    this.sceneFrames.clear()
+    if (started) { this.motionClock.now = now }
+    if (this.motionTimer < 0 && this.motionRunning(root!, now)) {
+      this.motionTimer = setInterval(() => {
+        let at = Date.now()
+        this.motionClock.now = at
+        let top = this.liveRoot
+        if (top === null || !this.motionRunning(top!, at)) {
+          clearInterval(this.motionTimer)
+          this.motionTimer = -1
+        }
+      }, 33)
+    }
+  }
+
+  private visitMotion(node: LiveNode, path: string, now: number, next: Map<LiveNode, PoseAnim>): boolean {
+    let started = false
+    if (node.kind === 'motion') {
+      let seen = this.motionTriggers.get(path)
+      if (seen !== undefined && seen !== node.numberValue && motionDuration(node.style) > 0) {
+        node.motionStart = now
+        started = true
+      }
+      this.motionTriggers.set(path, node.numberValue)
+    } else if (node.kind === 'transform') {
+      let target = poseFromArray(node.series)
+      let before = this.poseAnims.get(node)
+      if (before === undefined) {
+        next.set(node, new PoseAnim(target, target, -1, 0))
+      } else if (samePose(before.to, target)) {
+        next.set(node, before)
+      } else {
+        let shown = animatedPose(before.from, before.to, before.start, before.duration, now)
+        next.set(node, new PoseAnim(shown, target, now, node.numberValue))
+        started = true
+      }
+    }
+    for (let i = 0; i < node.children.length; i++) {
+      if (this.visitMotion(node.children[i], path + '/' + i.toString(), now, next)) { started = true }
+    }
+    return started
+  }
+
+  private motionRunning(node: LiveNode, now: number): boolean {
+    if (node.kind === 'motion' && node.motionStart >= 0 && now - node.motionStart < motionDuration(node.style)) { return true }
+    if (node.kind === 'transform') {
+      let anim = this.poseAnims.get(node)
+      if (anim !== undefined && anim.start >= 0 && now - anim.start < anim.duration) { return true }
+    }
+    for (let child of node.children) {
+      if (this.motionRunning(child, now)) { return true }
+    }
+    return false
+  }
+
+  /** The pose of a Motion now; the identity pose when it is not playing. Reads the clock, so the branch redraws with it. */
+  private motionPoseOf(node: LiveNode): MotionPose {
+    let now = this.motionClock.now
+    if (node.motionStart < 0) { return new MotionPose() }
+    let duration = motionDuration(node.style)
+    if (duration <= 0) { return new MotionPose() }
+    return motionPose(node.style, (now - node.motionStart) / duration)
+  }
+
+  /** The pose a Transform shows at `now`. */
+  private shownPose(node: LiveNode, now: number): number[] {
+    let anim = this.poseAnims.get(node)
+    if (anim === undefined) { return poseFromArray(node.series) }
+    return animatedPose(anim.from, anim.to, anim.start, anim.duration, now)
+  }
+
+  /**
+   * Every layer of a scene this frame, flat. A Transform's matrix is composed with its parents' here, in code, and each layer
+   * is then drawn as a sibling with its final matrix: ArkUI is asked for one transform per layer and never has to compose
+   * nested 3D ones. Cached by clock value, because every attribute of every layer asks for it.
+   */
+  private sceneFrame(root: LiveNode): SceneFrame {
+    let now = this.motionClock.now
+    let cached = this.sceneFrames.get(root)
+    if (cached !== undefined && cached.at === now) { return cached }
+    let frame = new SceneFrame()
+    frame.at = now
+    let density = this.getUIContext().vp2px(1)
+    let distance = stageDistance(root.kind === 'stage' ? root.numberValue : 0) * density
+    if (root.kind === 'stage') {
+      for (let child of root.children) {
+        if (child.kind === 'transform') { this.collectLayers(child, identityMatrix(), 1, distance, density, now, frame) }
+      }
+    } else {
+      this.collectLayers(root, identityMatrix(), 1, distance, density, now, frame)
+    }
+    let depths: number[] = []
+    for (let layer of frame.layers) { depths.push(layer.depth) }
+    let ranks = depthRanks(depths)
+    for (let i = 0; i < frame.layers.length; i++) { frame.layers[i].rank = ranks[i] }
+    this.sceneFrames.set(root, frame)
+    return frame
+  }
+
+  private collectLayers(node: LiveNode, parent: number[], opacity: number, distance: number, density: number, now: number,
+      frame: SceneFrame): void {
+    let pose = poseToPixels(this.shownPose(node, now), density)
+    let composed = multiplyMatrices(parent, poseMatrix(pose))
+    let alpha = opacity * pose[7]
+    let hasContent = false
+    for (let child of node.children) { if (child.kind !== 'transform') { hasContent = true } }
+    if (hasContent) {
+      let visible = node.style !== 'solid' || facesViewer(composed, distance)
+      let layer = new SceneLayer(node, multiplyMatrices(perspectiveMatrix(distance), composed), alpha, visible)
+      layer.side = node.minimum
+      layer.depth = composed[11]
+      if (node.style === 'solid') { layer.shade = faceShade(composed) }
+      frame.layers.push(layer)
+    }
+    for (let child of node.children) {
+      if (child.kind === 'transform') { this.collectLayers(child, composed, alpha, distance, density, now, frame) }
+    }
+  }
+
+  private layerAt(root: LiveNode, index: number): SceneLayer | null {
+    let frame = this.sceneFrame(root)
+    return index < frame.layers.length ? frame.layers[index] : null
+  }
+
+  private layerOpacity(root: LiveNode, index: number): number {
+    let layer = this.layerAt(root, index)
+    return layer !== null ? layer!.opacity : 0
+  }
+
+  private layerRank(root: LiveNode, index: number): number {
+    let layer = this.layerAt(root, index)
+    return layer !== null ? layer!.rank : 0
+  }
+
+  private layerSide(root: LiveNode, index: number): number {
+    let layer = this.layerAt(root, index)
+    return layer !== null ? layer!.side : 0
+  }
+
+  private layerShade(root: LiveNode, index: number): number {
+    let layer = this.layerAt(root, index)
+    return layer !== null ? layer!.shade : 1
+  }
+
+  private layerVisible(root: LiveNode, index: number): boolean {
+    let layer = this.layerAt(root, index)
+    return layer !== null && layer!.visible
+  }
+
+  private layerTransform(root: LiveNode, index: number): Object {
+    let layer = this.layerAt(root, index)
+    let m = columnMajor(layer !== null ? layer!.matrix : identityMatrix())
+    return matrix4.init([m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8], m[9], m[10], m[11], m[12], m[13], m[14], m[15]])
+  }
+
+  /** The ids of a scene's layers, in order: when the set of layers changes the drawn layers are rebuilt. */
+  private layerKeys(root: LiveNode): string[] {
+    let keys: string[] = []
+    let frame = this.sceneFrame(root)
+    for (let i = 0; i < frame.layers.length; i++) { keys.push(i.toString() + ':' + frame.layers[i].node.children.length.toString()) }
+    return keys
+  }
+
+  private layerNode(root: LiveNode, index: number): LiveNode {
+    let layer = this.layerAt(root, index)
+    return layer !== null ? layer!.node : root
+  }
+
   /** First spinning shape wins; one shared angle is enough. */
   private findSpinPeriod(node: VeraUiNode): number {
     if (node.kind === 'path' && node.spinPeriodMs > 0) { return node.spinPeriodMs }
@@ -435,6 +669,10 @@ export struct VeraPreview {
     for (let id of Array.from(this.timers.keys())) { this.stopTimer(id) }
     if (this.spinTimer >= 0) { clearInterval(this.spinTimer); this.spinTimer = -1 }
     this.spinPeriod = 0
+    if (this.motionTimer >= 0) { clearInterval(this.motionTimer); this.motionTimer = -1 }
+    this.motionTriggers.clear()
+    this.poseAnims.clear()
+    this.sceneFrames.clear()
   }
 
   aboutToDisappear(): void {
@@ -525,6 +763,7 @@ export struct VeraPreview {
       this.revision += 1
       this.reconcileTimers(this.previewOnly ? null : root)
       this.reconcileSpin(root)
+      this.reconcileMotion()
       this.reconcileBackHandler(root)
     } catch (e) {
       this.error = 'View error: ' + (e as Error).message
@@ -948,13 +1187,30 @@ export struct VeraPreview {
   private sectionFill(style: string): string {
     let t = this.t()
     if (style === 'hero') { return t.primaryFill }
-    if (style === 'summary') { return t.surface }
+    if (style === 'summary' || style === 'content') { return t.surface }
     if (style === 'warning') { return t.warningFill }
     return '#00000000'
   }
 
+  /**
+   * The role a section is drawn as. A summary or content section whose only drawn child is already a frame of its own
+   * (a list group, a card, a table, a timeline, a tile grid) is drawn plain: filling it too would put a card inside a card,
+   * two edges and two shadows around one thing.
+   */
+  private sectionLook(node: LiveNode): string {
+    if (node.style !== 'summary' && node.style !== 'content') { return node.style }
+    // A When that is false decodes to an empty spacer; it neither draws nor counts.
+    let framed = 0
+    for (let child of node.children) {
+      if (child.kind === 'spacer') { continue }
+      if (['listgroup', 'card', 'table', 'timeline', 'tilegrid'].indexOf(child.kind) < 0) { return node.style }
+      framed++
+    }
+    return framed === 1 ? 'plain' : node.style
+  }
+
   private sectionFills(style: string): boolean {
-    return style === 'hero' || style === 'summary' || style === 'warning'
+    return style === 'hero' || style === 'summary' || style === 'content' || style === 'warning'
   }
 
   /**
@@ -1004,6 +1260,39 @@ export struct VeraPreview {
     return this.embedded && (style === 'display' || style === 'metric') ? Math.min(32, size) : size
   }
 
+  /**
+   * The wash behind a title block: the accent's container fading into the page, so the top of the
+   * screen carries the colour without a frame. Flat presets (no shadow) and an already-filled
+   * accent block get none -- a gradient needs two distinct stops, so this gives the same colour twice.
+   */
+  private titleTint(filled: boolean): string {
+    return this.t().shadowRadius > 0 && !filled ? this.t().primaryFill : this.t().background
+  }
+
+  /** The disc a timeline entry's icon sits on; the rail runs through its centre. */
+  private timelineMarker(): number {
+    return Math.round(this.t().sizeBody * 1.9)
+  }
+
+  /**
+   * How a title block or a section comes onto the screen: it fades in while rising a little.
+   * Short and with no overshoot, so a screen that fills in as it is generated settles rather than bounces.
+   */
+  private arrival(): TransitionEffect {
+    return TransitionEffect.OPACITY.combine(TransitionEffect.translate({ y: 14 }))
+      .animation({ duration: 280, curve: Curve.EaseOut })
+  }
+
+  /** The ring is a square sized to the control rhythm, never wider than a third of a phone. */
+  private ringSize(): number {
+    return this.t().controlHeight * 3
+  }
+
+  /** A stat's figure sits a step under the display size, so the title leads and the numbers follow it. */
+  private statFigureSize(): number {
+    return Math.round(this.renderTextSize('metric') * 0.85)
+  }
+
   /** Each group measures its own available width, including inside another group. */
   private adaptiveColumnsCount(node: LiveNode): number {
     let minimum = node.minimum <= 0 ? 240 : Math.max(160, node.minimum)
@@ -1034,6 +1323,13 @@ export struct VeraPreview {
    * SPARKLINE_HEIGHT alone would.
    */
   private static readonly SPARKLINE_HEIGHT: number = 260
+  /** Room a line chart keeps above its top and below its bottom gridline, so the stroke and the dots are not clipped. */
+  private static readonly SPARKLINE_INSET: number = 16
+  private static readonly SPARKLINE_DOT: number = 5
+  /** The most x-axis captions a line chart prints; past that, every other one (or third...) is left out. */
+  private static readonly SPARKLINE_LABELS: number = 6
+  /** Width a caption may use, wider than its slot: it is centred on its point and may reach over the empty slots beside it. */
+  private static readonly SPARKLINE_LABEL_BOX: number = 64
   /** Room a bars: true chart keeps above and below the tallest bar for its value and its name. */
   private static readonly BAR_LABEL_ROOM: number = 48
 
@@ -1064,57 +1360,84 @@ export struct VeraPreview {
    * 1/density of the box it sat in -- correct in proportion, pinned to the
    * top-left corner of a box several times its own size, which is what reads
    * as "a tiny line and a lot of empty space" on any screen whose density
-   * isn't 1. vp2px(1) is that density, so multiplying both axes by it before
+   * isn't 1. this.getUIContext().vp2px(1) is that density, so multiplying both axes by it before
    * building the path is what makes the drawing fill the box it is declared
    * to fill.
    */
   private sparklineCommands(series: number[], maximum: number, floor: number, width: number): string {
     if (series.length === 0) { return '' }
-    let max = maximum > floor ? maximum : floor + 1
-    let scale = this.getUIContext().vp2px(1)
-    let h = VeraPreview.SPARKLINE_HEIGHT * scale
-    let w = width * scale
-    let n = series.length
     let cmds: string[] = []
-    for (let i = 0; i < n; i++) {
-      let x = n > 1 ? (i / (n - 1)) * w : w / 2
-      let v = series[i] < floor ? floor : (series[i] > max ? max : series[i])
-      let y = h - ((v - floor) / (max - floor)) * h
-      cmds.push((i === 0 ? 'M ' : 'L ') + x.toFixed(2) + ' ' + y.toFixed(2))
+    for (let i = 0; i < series.length; i++) {
+      cmds.push((i === 0 ? 'M ' : 'L ') + this.sparklinePoint(series, i, maximum, floor, width))
     }
     return cmds.join(' ')
   }
 
   /**
-   * sparklineCommands's own points, closed down to the bottom edge of the
-   * same box and back to the start -- the area a chart's fill reads against,
-   * computed from the line itself rather than left to an implicit close the
-   * way the plain 'path' branch's fill is.
+   * Point i of a line-mode ui.Sparkline as "x y" in px. Each point sits in the middle of its own equal
+   * slot (the x-axis captions are laid out in the same slots, so a caption is always under its point),
+   * and the line is kept SPARKLINE_INSET inside the box above and below so the stroke and the dots are
+   * not cut off at the top and bottom gridlines.
+   */
+  private sparklinePoint(series: number[], i: number, maximum: number, floor: number, width: number): string {
+    let max = maximum > floor ? maximum : floor + 1
+    let scale = this.getUIContext().vp2px(1)
+    let inset = VeraPreview.SPARKLINE_INSET * scale
+    let h = VeraPreview.SPARKLINE_HEIGHT * scale
+    let x = (i + 0.5) / series.length * width * scale
+    let v = series[i] < floor ? floor : (series[i] > max ? max : series[i])
+    let y = inset + (1 - (v - floor) / (max - floor)) * (h - 2 * inset)
+    return x.toFixed(2) + ' ' + y.toFixed(2)
+  }
+
+  /**
+   * sparklineCommands's own points, closed down to the floor gridline and back to the start -- the area
+   * a chart's fill reads against, computed from the line itself rather than left to an implicit close.
    */
   private sparklineAreaCommands(series: number[], maximum: number, floor: number, width: number): string {
     if (series.length === 0) { return '' }
-    let max = maximum > floor ? maximum : floor + 1
     let scale = this.getUIContext().vp2px(1)
-    let h = VeraPreview.SPARKLINE_HEIGHT * scale
-    let w = width * scale
-    let n = series.length
+    let bottom = (VeraPreview.SPARKLINE_HEIGHT - VeraPreview.SPARKLINE_INSET) * scale
     let cmds: string[] = []
-    let firstX = 0
-    let lastX = w
-    for (let i = 0; i < n; i++) {
-      let x = n > 1 ? (i / (n - 1)) * w : w / 2
-      let v = series[i] < floor ? floor : (series[i] > max ? max : series[i])
-      let y = h - ((v - floor) / (max - floor)) * h
-      if (i === 0) { firstX = x }
-      if (i === n - 1) { lastX = x }
-      cmds.push((i === 0 ? 'M ' : 'L ') + x.toFixed(2) + ' ' + y.toFixed(2))
+    for (let i = 0; i < series.length; i++) {
+      cmds.push((i === 0 ? 'M ' : 'L ') + this.sparklinePoint(series, i, maximum, floor, width))
     }
-    cmds.push('L ' + lastX.toFixed(2) + ' ' + h.toFixed(2))
-    cmds.push('L ' + firstX.toFixed(2) + ' ' + h.toFixed(2))
+    let first = this.sparklinePoint(series, 0, maximum, floor, width).split(' ')[0]
+    let last = this.sparklinePoint(series, series.length - 1, maximum, floor, width).split(' ')[0]
+    cmds.push('L ' + last + ' ' + bottom.toFixed(2))
+    cmds.push('L ' + first + ' ' + bottom.toFixed(2))
     cmds.push('Z')
     return cmds.join(' ')
   }
 
+  /** One filled circle per point, so a chart of two or three values still reads as points, not as a bare slope. */
+  private sparklineDotCommands(series: number[], maximum: number, floor: number, width: number): string {
+    let r = VeraPreview.SPARKLINE_DOT * this.getUIContext().vp2px(1)
+    let cmds: string[] = []
+    for (let i = 0; i < series.length; i++) {
+      let xy = this.sparklinePoint(series, i, maximum, floor, width).split(' ')
+      let x = parseFloat(xy[0])
+      cmds.push('M ' + (x - r).toFixed(2) + ' ' + xy[1] + ' a ' + r.toFixed(2) + ' ' + r.toFixed(2) + ' 0 1 0 ' +
+        (2 * r).toFixed(2) + ' 0 a ' + r.toFixed(2) + ' ' + r.toFixed(2) + ' 0 1 0 ' + (-2 * r).toFixed(2) + ' 0')
+    }
+    return cmds.join(' ')
+  }
+
+  /**
+   * The x-axis captions, one per point (cut or padded to the series), each laid out in its point's slot. With
+   * more than SPARKLINE_LABELS points only every step-th caption is kept (the rest are empty, their slots stay),
+   * so the ones that remain have room to be read in full.
+   */
+  private sparklineLabels(node: LiveNode): string[] {
+    let n = node.series.length
+    let step = n > VeraPreview.SPARKLINE_LABELS ? Math.ceil((n - 1) / (VeraPreview.SPARKLINE_LABELS - 1)) : 1
+    let labels: string[] = []
+    for (let i = 0; i < n; i++) {
+      let text = i < node.categories.length ? node.categories[i] : ''
+      labels.push(i % step === 0 ? text : '')
+    }
+    return labels
+  }
 
   /**
    * The real width to draw a ui.Sparkline's path commands in, in vp.
@@ -1180,38 +1503,32 @@ export struct VeraPreview {
     return items
   }
 
-  /** ui.Sparkline's x-axis caption, its categories joined the same way a program would build it by hand. */
-  private sparklineAxisText(node: LiveNode): string {
-    return node.categories.join(' · ')
-  }
-
   /**
    * Four evenly spaced y-axis values for a line-mode ui.Sparkline, maximum
    * first -- the order the label column draws top to bottom, over the same
    * range sparklineGridCommands draws its lines across.
    */
-  private sparklineTicks(maximum: number, floor: number): number[] {
+  private sparklineTicks(maximum: number, floor: number): string[] {
     let max = maximum > floor ? maximum : floor + 1
     let step = (max - floor) / 3
-    return [
-      Math.round(max),
-      Math.round(floor + step * 2),
-      Math.round(floor + step),
-      Math.round(floor),
-    ]
+    let ticks: string[] = []
+    for (let i = 3; i >= 0; i--) {
+      let v = floor + step * i
+      // A narrow range needs a decimal or the four labels repeat (172, 172, 173, 173).
+      ticks.push(max - floor >= 6 ? Math.round(v).toString() : (Math.round(v * 10) / 10).toString())
+    }
+    return ticks
   }
 
   /** One horizontal line per sparklineTicks value, in the same px-corrected space sparklineCommands draws in. */
   private sparklineGridCommands(maximum: number, floor: number, width: number): string {
-    let max = maximum > floor ? maximum : floor + 1
     let scale = this.getUIContext().vp2px(1)
+    let inset = VeraPreview.SPARKLINE_INSET * scale
     let h = VeraPreview.SPARKLINE_HEIGHT * scale
     let w = width * scale
-    let step = (max - floor) / 3
     let cmds: string[] = []
     for (let i = 0; i <= 3; i++) {
-      let v = floor + step * i
-      let y = h - ((v - floor) / (max - floor)) * h
+      let y = inset + (i / 3) * (h - 2 * inset)
       cmds.push('M 0 ' + y.toFixed(2) + ' L ' + w.toFixed(2) + ' ' + y.toFixed(2))
     }
     return cmds.join(' ')
@@ -1303,6 +1620,20 @@ export struct VeraPreview {
 
   private sectionRadius(style: string): number {
     return this.sectionFills(style) ? this.t().radiusCard : 0
+  }
+
+  /** An icon on a tinted disc: the anchor that lets the eye find a row or an empty screen. */
+  @Builder
+  iconChip(name: string, box: number, fill: string, colour: string) {
+    Column() {
+      this.drawIcon(name, Math.round(box * 0.5), colour)
+    }
+    .width(box)
+    .height(box)
+    .justifyContent(FlexAlign.Center)
+    .alignItems(HorizontalAlign.Center)
+    .backgroundColor(fill)
+    .borderRadius(box / 2)
   }
 
   /**
@@ -1437,8 +1768,48 @@ export struct VeraPreview {
       .alignItems(HorizontalAlign.Start)
       .padding(this.t().padCard)
       .backgroundColor(toneFill(this.t(), node.style, this.t().surface))
-      .border({ width: this.t().borderWidth, color: this.t().line })
+      .border({ width: this.t().borderWidth, color: this.t().lineSoft })
       .borderRadius(this.t().radiusCard)
+      .shadow({ radius: this.t().shadowRadius, color: this.t().shadowColor, offsetY: this.t().shadowOffsetY })
+    } else if (node.kind === 'stage' || (node.kind === 'transform' && parentKind !== 'stage' && parentKind !== 'transform')) {
+      // A scene: every layer is a flat sibling in a centred stack with its own final matrix (see sceneFrame). A Transform
+      // outside a Stage is a scene of one layer, with the default viewer distance.
+      Stack() {
+        ForEach(this.layerKeys(node), (key: string, index: number) => {
+          Column() {
+            this.renderChildren(this.layerNode(node, index))
+          }
+          .alignItems(HorizontalAlign.Center)
+          .width(this.layerSide(node, index) > 0 ? this.layerSide(node, index) : undefined)
+          .height(this.layerSide(node, index) > 0 ? this.layerSide(node, index) : undefined)
+          .opacity(this.layerOpacity(node, index))
+          .brightness(this.layerShade(node, index))
+          .zIndex(this.layerRank(node, index))
+          .visibility(this.layerVisible(node, index) ? Visibility.Visible : Visibility.Hidden)
+          .transform(this.layerTransform(node, index))
+        }, (key: string) => key)
+      }
+      .width('100%')
+      .height(node.kind === 'stage' && node.minimum > 0 ? node.minimum : undefined)
+      .clip(node.kind === 'stage' && node.style === 'floor')
+      .backgroundColor(node.kind === 'stage' && node.style === 'floor' ? this.t().surface : Color.Transparent)
+      .border({ width: node.kind === 'stage' && node.style === 'floor' ? this.t().borderWidth : 0, color: this.t().line })
+      .borderRadius(node.kind === 'stage' && node.style === 'floor' ? this.t().radiusCard : 0)
+    } else if (node.kind === 'transform') {
+      // Inside a Stage or another Transform: drawn by the scene that owns it, not here.
+    } else if (node.kind === 'motion') {
+      // The children are drawn as they are; only the pose around them moves. Drawn inline, no component of its own.
+      Column() {
+        this.renderChildren(node)
+      }
+      .width(parentKind === 'row' ? undefined : '100%')
+      .layoutWeight(parentKind === 'row' ? 1 : 0)
+      .alignItems(HorizontalAlign.Center)
+      .rotate({ x: this.motionPoseOf(node).axisX, y: this.motionPoseOf(node).axisY, z: this.motionPoseOf(node).axisZ,
+                angle: this.motionPoseOf(node).angle, centerX: '50%', centerY: '50%', perspective: 2400 })
+      .scale({ x: this.motionPoseOf(node).scale, y: this.motionPoseOf(node).scale, centerX: '50%', centerY: '50%' })
+      .translate({ x: this.motionPoseOf(node).dx, y: this.motionPoseOf(node).dy })
+      .opacity(this.motionPoseOf(node).opacity)
     } else if (node.kind === 'text') {
       Text(node.text)
         .fontSize(this.renderTextSize(node.style))
@@ -1460,8 +1831,8 @@ export struct VeraPreview {
           Text(node.label)
             .fontSize(this.t().sizeCaption)
             .fontFamily(this.textFamily())
-            .fontWeight(this.t().weightHeading)
-            .fontColor(this.t().inkMuted)
+            .fontWeight(Math.max(this.t().weightHeading, 600))
+            .fontColor(this.t().primaryInk)
             .letterSpacing(this.t().eyebrowSpacing)
             .width('100%')
         }
@@ -1493,6 +1864,7 @@ export struct VeraPreview {
         bottom: node.style === 'accent' ? this.t().padCard : 0
       })
       .backgroundColor(node.style === 'accent' ? this.t().primaryFill : '#00000000')
+      .linearGradient({ angle: 180, colors: [[this.titleTint(node.style === 'accent'), 0.0], [this.t().background, 1.0]] })
       .borderRadius(node.style === 'accent' ? this.t().radiusCard : 0)
       .margin({ bottom: this.t().gapSection })
     } else if (node.kind === 'adaptivecolumns') {
@@ -1526,20 +1898,28 @@ export struct VeraPreview {
     } else if (node.kind === 'header') {
       // The app's own title block. A generated program used to open with a bare
       // ui.Text and nothing to distinguish it from the first line of content.
-      Column({ space: this.t().gapTight }) {
+      Column({ space: this.t().gapBase }) {
         if (node.label.length > 0) {
           Text(node.label)
             .fontSize(this.t().sizeEyebrow)
             .fontFamily(this.textFamily())
-            .fontWeight(this.t().weightHeading)
-            .fontColor(this.t().inkMuted)
+            .fontWeight(Math.max(this.t().weightHeading, 600))
+            .fontColor(this.t().primaryInk)
             .letterSpacing(this.t().eyebrowSpacing)
             .width('100%')
             .textAlign(node.style === 'center' ? TextAlign.Center : TextAlign.Start)
         }
         Row({ space: this.t().gapBase }) {
           if (node.icon.length > 0) {
-            this.drawIcon(node.icon, this.t().sizeTitle, this.t().primaryInk)
+            Column() {
+              this.drawIcon(node.icon, this.t().sizeTitle - 4, this.t().primaryInk)
+            }
+            .width(this.t().sizeTitle + 16)
+            .height(this.t().sizeTitle + 16)
+            .justifyContent(FlexAlign.Center)
+            .alignItems(HorizontalAlign.Center)
+            .backgroundColor(this.t().primaryFill)
+            .borderRadius(this.t().radiusControl)
           }
           Text(node.text)
             .fontSize(this.renderTextSize('display'))
@@ -1550,7 +1930,7 @@ export struct VeraPreview {
             .textAlign(node.style === 'center' ? TextAlign.Center : TextAlign.Start)
         }
         .width('100%')
-        .alignItems(VerticalAlign.Center)
+        .alignItems(VerticalAlign.Top)
         if (node.value.length > 0) {
           Text(node.value)
             .fontSize(this.t().sizeBody)
@@ -1564,13 +1944,15 @@ export struct VeraPreview {
       .alignItems(node.style === 'center' ? HorizontalAlign.Center : HorizontalAlign.Start)
       .padding({ left: this.t().padBase, right: this.t().padBase,
                  top: this.t().padLoose, bottom: this.t().padBase })
+      .linearGradient({ angle: 180, colors: [[this.titleTint(false), 0.0], [this.t().background, 1.0]] })
+      .transition(this.arrival())
     } else if (node.kind === 'section') {
       Column({ space: this.t().gapTight }) {
         if (node.text.length > 0) {
           Text(node.text)
             .fontSize(this.renderTextSize('heading'))
             .fontFamily(this.textFamily('heading'))
-            .fontWeight(this.t().weightHeading)
+            .fontWeight(Math.max(this.t().weightHeading, 600))
             .fontColor(node.style === 'warning' ? this.t().warningInk :
               node.style === 'supporting' ? this.t().inkSoft : this.t().ink)
             .width('100%')
@@ -1584,18 +1966,31 @@ export struct VeraPreview {
         }
         this.renderChildren(node)
       }
-      .width('100%')
+      // Margins add to a 100% width, so a section that stands in from the edges takes them off it.
+      .width(this.sectionFills(this.sectionLook(node)) ? 'calc(100% - ' + (this.t().padBase * 2).toString() + 'vp)' : '100%')
       .alignItems(HorizontalAlign.Start)
       .padding({
-        left: !this.sectionFills(node.style) && this.compositionOwnsInset(parentKind) ? 0 : this.sectionPadX(node.style),
-        right: !this.sectionFills(node.style) && this.compositionOwnsInset(parentKind) ? 0 : this.sectionPadX(node.style),
-        top: this.sectionPadY(node.style), bottom: this.sectionPadY(node.style)
+        left: !this.sectionFills(this.sectionLook(node)) && this.compositionOwnsInset(parentKind) ? 0 : this.sectionPadX(this.sectionLook(node)),
+        right: !this.sectionFills(this.sectionLook(node)) && this.compositionOwnsInset(parentKind) ? 0 : this.sectionPadX(this.sectionLook(node)),
+        top: this.sectionPadY(this.sectionLook(node)), bottom: this.sectionPadY(this.sectionLook(node))
       })
-      .backgroundColor(this.sectionFill(node.style))
-      .borderRadius(this.sectionRadius(node.style))
+      .backgroundColor(this.sectionFill(this.sectionLook(node)))
+      .borderRadius(this.sectionRadius(this.sectionLook(node)))
+      // Only a section that fills has a box to lift. For the others a shadow of radius 0 is not "none":
+      // it is a hard copy of the box offset downward, which showed as a line under every plain section.
+      .shadow({
+        radius: this.sectionFills(this.sectionLook(node)) ? this.t().shadowRadius : 0,
+        color: this.sectionFills(this.sectionLook(node)) ? this.t().shadowColor : '#00000000',
+        offsetY: this.sectionFills(this.sectionLook(node)) ? this.t().shadowOffsetY : 0 })
       // The gap between one section and the next comes from the theme, so a
       // program does not have to punctuate itself with ui.Spacer.
-      .margin({ top: this.t().gapTight, bottom: this.t().gapSection })
+      // A section that fills stands in from the screen's edges: run flush to them, its shadow
+      // shows only as a hard line along the bottom and its corners are cut off.
+      .margin({
+        left: this.sectionFills(this.sectionLook(node)) ? this.t().padBase : 0,
+        right: this.sectionFills(this.sectionLook(node)) ? this.t().padBase : 0,
+        top: this.t().gapTight, bottom: this.t().gapSection })
+      .transition(this.arrival())
     } else if (node.kind === 'sectionheader') {
       Column({ space: 2 }) {
         Row() {
@@ -1668,14 +2063,15 @@ export struct VeraPreview {
       .width('100%')
       .alignItems(HorizontalAlign.Start)
       .backgroundColor(this.t().surfaceRaised)
-      .border({ width: this.t().borderWidth, color: this.t().line })
+      .border({ width: this.t().borderWidth, color: this.t().lineSoft })
       .borderRadius(this.t().radiusCard)
+      .shadow({ radius: this.t().shadowRadius, color: this.t().shadowColor, offsetY: this.t().shadowOffsetY })
       .clip(true)
       .margin({ top: this.t().gapTight, bottom: this.t().gapTight })
     } else if (node.kind === 'banner') {
       Row({ space: this.t().gapBase }) {
         if (node.icon.length > 0) {
-          this.drawIcon(node.icon, this.t().sizeHeading,
+          this.iconChip(node.icon, this.t().controlHeight - 8, this.t().surface,
             toneEdge(this.t(), node.style, this.t().primaryInk))
         }
         Column({ space: 2 }) {
@@ -1691,7 +2087,7 @@ export struct VeraPreview {
             Text(node.label)
               .fontSize(this.t().sizeCaption)
               .fontFamily(this.textFamily())
-              .fontColor(this.t().inkSoft)
+              .fontColor(this.t().inkStrong)
               .width('100%')
           }
         }
@@ -1719,13 +2115,16 @@ export struct VeraPreview {
       // than as one more tinted box.
       .borderWidth({ left: 4 })
       .borderColor({ left: toneEdge(this.t(), node.style, this.t().primary) })
-      .margin({ top: this.t().gapTight, bottom: this.t().gapTight })
+      .margin({ top: this.t().gapTight, bottom: this.t().gapTight,
+                left: this.compositionOwnsInset(parentKind) ? 0 : this.t().padBase,
+                right: this.compositionOwnsInset(parentKind) ? 0 : this.t().padBase })
     } else if (node.kind === 'emptystate') {
       // State starts empty, so for most programs this is the first thing anyone
       // sees. It used to be a blank column.
       Column({ space: this.t().gapBase }) {
         if (node.icon.length > 0) {
-          this.drawIcon(node.icon, this.t().sizeDisplay, this.t().inkMuted)
+          this.iconChip(node.icon, this.t().controlHeight + 24,
+            this.t().primaryFill, this.t().primaryInk)
         }
         Text(node.text)
           .fontSize(this.renderTextSize('heading'))
@@ -1774,12 +2173,21 @@ export struct VeraPreview {
               .fontFamily(this.textFamily())
               .fontColor(this.t().inkMuted)
               .layoutWeight(1)
+              // Two lines of fixed size and a fixed box, so every figure in a row sits on one baseline
+              // and neighbouring labels are the same size; a longer label is cut, not shrunk.
+              .maxLines(2)
+              .height(Math.round(this.t().sizeCaption * 2.6))
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
           }
         }
         .width('100%')
         .alignItems(VerticalAlign.Center)
         Text(node.text)
-          .fontSize(this.renderTextSize('metric'))
+          .fontSize(this.statFigureSize())
+          // One line, shrunk to fit its column: three to a row leave a cell about 100 vp wide.
+          .maxLines(1)
+          .minFontSize(14)
+          .maxFontSize(this.statFigureSize())
           .fontFamily(this.textFamily('metric'))
           .fontWeight(this.t().weightMetric)
           .fontColor(toneInk(this.t(), node.style, this.t().ink))
@@ -1794,7 +2202,7 @@ export struct VeraPreview {
       }
       .width('100%')
       .alignItems(HorizontalAlign.Start)
-      .padding(this.t().padBase)
+      .padding(this.t().padTight)
     } else if (node.kind === 'metricgroup') {
       // Equal columns over one shared surface, built the same way ui.Grid is
       // and for the same reason -- see the note in the grid branch.
@@ -1807,13 +2215,62 @@ export struct VeraPreview {
           Column() {
             this.renderNode(child, 'metricgroup')
           }
-          .width(Math.floor(100 / this.fittingColumns(this.metricColumns(node), 128)).toString() + '%')
+          .width(Math.floor(100 / this.fittingColumns(this.metricColumns(node), 104)).toString() + '%')
           // Same keying as renderChildren; see the note there.
         }, (child: LiveNode, index: number) => index.toString() + ':' + child.kind)
       }
       .width('100%')
       .padding(densityPad(this.t(), node.style) - this.t().padTight)
       .margin({ top: this.t().gapTight, bottom: this.t().gapTight })
+    } else if (node.kind === 'tilegrid') {
+      // Two to a row; a tile of span 2 takes the row. Widths are calc() shares of the row less half the gap,
+      // so the pair and the wide tile line up at both edges.
+      Flex({
+        wrap: FlexWrap.Wrap,
+        justifyContent: FlexAlign.Start,
+        alignItems: ItemAlign.Stretch,
+        space: { main: LengthMetrics.vp(this.t().gapLoose), cross: LengthMetrics.vp(this.t().gapLoose) }
+      }) {
+        ForEach(node.children, (child: LiveNode) => {
+          Column() {
+            this.renderNode(child, 'tilegrid')
+          }
+          .width(child.kind === 'tile' && child.columns >= 2 ? '100%' :
+            'calc(50% - ' + (this.t().gapLoose / 2).toString() + 'vp)')
+          // Same keying as renderChildren; see the note there.
+        }, (child: LiveNode, index: number) => index.toString() + ':' + child.kind)
+      }
+      .width('100%')
+      .padding({ left: this.t().padBase, right: this.t().padBase })
+      .margin({ top: this.t().gapTight, bottom: this.t().gapTight })
+    } else if (node.kind === 'tile') {
+      Column({ space: this.t().gapTight }) {
+        if (node.icon.length > 0) {
+          this.iconChip(node.icon, this.t().controlHeight - 8,
+            node.style === 'default' ? this.t().primaryFill : this.t().surface,
+            toneInk(this.t(), node.style, this.t().primaryInk))
+        }
+        if (node.label.length > 0) {
+          Text(node.label).fontSize(this.t().sizeCaption).fontFamily(this.textFamily())
+            .fontWeight(Math.max(this.t().weightHeading, 500)).fontColor(this.t().inkSoft)
+            .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis }).width('100%')
+        }
+        Text(node.text).fontSize(this.statFigureSize()).fontFamily(this.textFamily('metric'))
+          .fontWeight(this.t().weightMetric).fontColor(toneInk(this.t(), node.style, this.t().ink))
+          .maxLines(1).minFontSize(14).maxFontSize(this.statFigureSize()).width('100%')
+        if (node.value.length > 0) {
+          Text(node.value).fontSize(this.t().sizeCaption).fontFamily(this.textFamily())
+            .fontColor(this.t().inkSoft).maxLines(2).textOverflow({ overflow: TextOverflow.Ellipsis }).width('100%')
+        }
+      }
+      .width('100%')
+      .height('100%')
+      .alignItems(HorizontalAlign.Start)
+      .padding(this.t().padCard)
+      .backgroundColor(toneFill(this.t(), node.style, this.t().surface))
+      .border({ width: this.t().borderWidth, color: this.t().lineSoft })
+      .borderRadius(this.t().radiusCard)
+      .shadow({ radius: this.t().shadowRadius, color: this.t().shadowColor, offsetY: this.t().shadowOffsetY })
     } else if (node.kind === 'numbertext') {
       // ui.Text's twin for a number the program holds as a number.
       Text(this.formatNumber(node))
@@ -1848,16 +2305,23 @@ export struct VeraPreview {
               .fontFamily(this.textFamily())
               .fontColor(this.t().inkMuted)
               .layoutWeight(1)
+              // Two lines of fixed size and a fixed box, so every figure in a row sits on one baseline
+              // and neighbouring labels are the same size; a longer label is cut, not shrunk.
+              .maxLines(2)
+              // Words are not torn apart in a narrow column ("Compoundin|g factor"): a long one is cut with an ellipsis.
+              .wordBreak(WordBreak.NORMAL)
+              .height(Math.round(this.t().sizeCaption * 2.6))
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
           }
         }
         .width('100%')
         .alignItems(VerticalAlign.Center)
         Text(this.formatNumber(node))
-          .fontSize(this.renderTextSize('metric'))
+          .fontSize(this.statFigureSize())
           // One line, shrunk to fit its column: "$120.50" in half a screen wrapped its last digit onto a second line.
           .maxLines(1)
           .minFontSize(14)
-          .maxFontSize(this.renderTextSize('metric'))
+          .maxFontSize(this.statFigureSize())
           .fontFamily(this.textFamily('metric'))
           .fontWeight(this.t().weightMetric)
           .fontColor(toneInk(this.t(), node.style, this.t().ink))
@@ -1868,24 +2332,27 @@ export struct VeraPreview {
             .fontFamily(this.textFamily())
             .fontColor(this.t().inkSoft)
             .width('100%')
+            .maxLines(2)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
         }
       }
       .width('100%')
       .alignItems(HorizontalAlign.Start)
-      .padding(this.t().padBase)
+      .padding(this.t().padTight)
     } else if (node.kind === 'numberfield') {
       // A stepper for a small count; a typed amount goes through ui.TextField
       // and strings.toNumber instead.
       Column({ space: this.t().gapTight }) {
         if (node.label.length > 0) {
-          Text(node.label).fontSize(this.t().sizeCaption).fontFamily(this.textFamily()).fontColor(this.t().inkSoft).width('100%')
+          Text(node.label).fontSize(this.t().sizeCaption).fontFamily(this.textFamily())
+            .fontWeight(Math.max(this.t().weightHeading, 500)).fontColor(this.t().inkStrong).width('100%')
         }
         Row({ space: this.t().gapBase }) {
           Button('-')
             .fontSize(this.t().sizeBody)
             .fontFamily(this.textFamily())
-            .width(this.t().controlHeight)
-            .height(this.t().controlHeight)
+            .width(this.t().controlHeight - 8)
+            .height(this.t().controlHeight - 8)
             .type(ButtonType.Circle)
             .enabled(node.enabled && node.numberValue > node.minimum)
             .backgroundColor(this.t().secondaryFill)
@@ -1919,6 +2386,12 @@ export struct VeraPreview {
         }
         .width('100%')
         .alignItems(VerticalAlign.Center)
+        // One pill holding both buttons and the value, rather than a circle at each edge of the screen.
+        .height(this.t().controlHeight)
+        .padding({ left: 4, right: 4 })
+        .backgroundColor(this.t().fieldFill)
+        .border({ width: this.t().borderWidth, color: this.t().fieldLine })
+        .borderRadius(this.t().controlHeight / 2)
       }
       .width('100%')
       .padding({ top: this.t().gapTight, bottom: this.t().gapTight })
@@ -2063,10 +2536,11 @@ export struct VeraPreview {
               this.renderNode(child, 'timeline')
             }
             .width('100%')
-            .padding({ left: this.t().gapLoose })
+            .padding({ left: this.timelineMarker() / 2 + this.t().gapBase })
             .border({
-              width: { left: index < node.children.length - 1 ? this.t().borderWidth * 2 : 0 },
-              color: { left: this.t().line }
+              // The last entry keeps the rail's width but not its colour, so its words line up with the rest.
+              width: { left: this.t().borderWidth * 2 },
+              color: { left: index < node.children.length - 1 ? this.t().lineStrong : '#00000000' }
             })
 
             // A marker means "a moment happened here", so only an entry gets
@@ -2076,7 +2550,7 @@ export struct VeraPreview {
             // another one.
             Column() {
               if (child.kind === 'timelineitem' && child.icon.length > 0) {
-                this.drawIcon(child.icon, this.t().sizeBody,
+                this.drawIcon(child.icon, this.t().sizeBody - 2,
                   toneEdge(this.t(), child.style, this.t().primaryInk))
               } else if (child.kind === 'timelineitem') {
                 Column()
@@ -2086,14 +2560,14 @@ export struct VeraPreview {
                   .backgroundColor(toneEdge(this.t(), child.style, this.t().primaryInk))
               }
             }
-            .width(child.kind === 'timelineitem' ? this.t().sizeBody * 1.5 : 0)
-            .height(child.kind === 'timelineitem' ? this.t().sizeBody * 1.5 : 0)
-            .borderRadius(this.t().sizeBody * 0.75)
+            .width(child.kind === 'timelineitem' ? this.timelineMarker() : 0)
+            .height(child.kind === 'timelineitem' ? this.timelineMarker() : 0)
+            .borderRadius(this.timelineMarker() / 2)
             .backgroundColor(child.kind === 'timelineitem'
-              ? this.t().background : '#00000000')
+              ? toneFill(this.t(), child.style, this.t().primaryFill) : '#00000000')
             .alignItems(HorizontalAlign.Center)
             .justifyContent(FlexAlign.Center)
-            .offset({ x: -(this.t().sizeBody * 0.75) })
+            .offset({ x: -(this.timelineMarker() / 2) })
             // Same keying as renderChildren; see the note there.
           }
           .width('100%')
@@ -2102,7 +2576,7 @@ export struct VeraPreview {
       .width('100%')
       .alignItems(HorizontalAlign.Start)
       .padding({
-        left: densityPad(this.t(), node.style) + this.t().sizeBody * 0.75,
+        left: densityPad(this.t(), node.style) + this.timelineMarker() / 2,
         right: densityPad(this.t(), node.style),
         top: densityPad(this.t(), node.style),
         bottom: densityPad(this.t(), node.style)
@@ -2131,13 +2605,14 @@ export struct VeraPreview {
           Text(node.label)
             .fontSize(this.t().sizeCaption)
             .fontFamily(this.textFamily())
-            .fontColor(this.t().inkMuted)
+            .fontColor(this.t().inkSoft)
             .width('100%')
         }
       }
       .width('100%')
       .alignItems(HorizontalAlign.Start)
-      .padding({ bottom: node.style === 'compact' ? this.t().gapBase : this.t().gapLoose })
+      .padding({ top: Math.round((this.timelineMarker() - this.t().sizeBody * 1.3) / 2),
+                 bottom: node.style === 'compact' ? this.t().gapBase : this.t().gapLoose })
       .opacity(node.enabled ? 1 : 0.5)
       .onClick(() => {
         if (node.action.length > 0 && node.enabled) {
@@ -2218,8 +2693,9 @@ export struct VeraPreview {
       .width('100%')
       .alignItems(HorizontalAlign.Start)
       .backgroundColor(this.t().surfaceRaised)
-      .border({ width: this.t().borderWidth, color: this.t().line })
+      .border({ width: this.t().borderWidth, color: this.t().lineSoft })
       .borderRadius(this.t().radiusCard)
+      .shadow({ radius: this.t().shadowRadius, color: this.t().shadowColor, offsetY: this.t().shadowOffsetY })
     } else if (node.kind === 'tablerow') {
       // Each row's own cells (node.options) say how many columns it draws --
       // not the table's columns prop, which exists for the model to keep
@@ -2379,17 +2855,22 @@ export struct VeraPreview {
     } else if (node.kind === 'field') {
       Column({ space: this.t().gapTight }) {
         if (node.label.length > 0) {
-          Text(node.label).fontSize(this.t().sizeCaption).fontFamily(this.textFamily()).fontColor(this.t().inkSoft).width('100%')
+          Text(node.label).fontSize(this.t().sizeCaption).fontFamily(this.textFamily())
+            .fontWeight(Math.max(this.t().weightHeading, 500)).fontColor(this.t().inkStrong).width('100%')
         }
         // Commits on submit rather than on every keystroke. The tree no longer
         // rebuilds under the caret, but echoing each character back through the
         // VM and into .text() still fights whoever is typing.
-        TextInput({ placeholder: node.label, text: node.value })
+        // The label is already drawn above the box, so it is not repeated inside it as a placeholder.
+        TextInput({ placeholder: node.label.length > 0 ? '' : ' ', text: node.value })
           .fontSize(this.t().sizeBody)
           .fontFamily(this.textFamily())
           .fontColor(this.t().ink)
           .placeholderColor(this.t().inkMuted)
-          .backgroundColor(this.t().surface)
+          .caretColor(this.t().primary)
+          .backgroundColor(this.t().fieldFill)
+          .border({ width: this.t().borderWidth, color: this.t().fieldLine })
+          .borderRadius(this.t().radiusControl)
           .height(node.style === 'multiline' ? this.t().controlHeight * 2 : this.t().controlHeight)
           .width('100%')
           .enabled(node.enabled)
@@ -2430,8 +2911,10 @@ export struct VeraPreview {
     } else if (node.kind === 'slider') {
       Column({ space: 2 }) {
         Row() {
-          Text(node.label).fontSize(this.t().sizeCaption).fontFamily(this.textFamily()).fontColor(this.t().inkSoft).layoutWeight(1)
-          Text(node.eventValue.toString()).fontSize(this.t().sizeCaption).fontFamily(this.textFamily()).fontColor(this.t().inkStrong)
+          Text(node.label).fontSize(this.t().sizeCaption).fontFamily(this.textFamily())
+            .fontWeight(Math.max(this.t().weightHeading, 500)).fontColor(this.t().inkStrong).layoutWeight(1)
+          Text(node.eventValue.toString()).fontSize(this.t().sizeCaption).fontFamily(this.textFamily('metric'))
+            .fontWeight(Math.max(this.t().weightHeading, 500)).fontColor(this.t().primaryInk)
         }.width('100%')
         Slider({
           value: node.eventValue,
@@ -2458,7 +2941,8 @@ export struct VeraPreview {
     } else if (node.kind === 'select') {
       Column({ space: this.t().gapTight }) {
         if (node.label.length > 0) {
-          Text(node.label).fontSize(this.t().sizeCaption).fontFamily(this.textFamily()).fontColor(this.t().inkSoft).width('100%')
+          Text(node.label).fontSize(this.t().sizeCaption).fontFamily(this.textFamily())
+            .fontWeight(Math.max(this.t().weightHeading, 500)).fontColor(this.t().inkStrong).width('100%')
         }
         // A single trigger showing the current choice, with the rest of the
         // options in a system overlay menu rather than always on screen. The
@@ -2477,9 +2961,10 @@ export struct VeraPreview {
         }
         .width('100%')
         .height(this.t().controlHeight)
-        .padding({ left: this.t().padRow, right: this.t().padRow })
+        .padding({ left: this.t().padBase, right: this.t().padBase })
         .borderRadius(this.t().radiusControl)
-        .backgroundColor(this.t().secondaryFill)
+        .backgroundColor(this.t().fieldFill)
+        .border({ width: this.t().borderWidth, color: this.t().fieldLine })
         .opacity(node.enabled ? 1 : 0.5)
         .enabled(node.enabled)
         .bindMenu(this.selectMenuItems(node))
@@ -2510,8 +2995,9 @@ export struct VeraPreview {
     } else if (node.kind === 'listitem') {
       Row({ space: this.t().gapBase + 2 }) {
         if (node.icon.length > 0) {
-          this.drawIcon(node.icon, this.t().sizeHeading,
-            toneInk(this.t(), node.style, this.t().inkSoft))
+          this.iconChip(node.icon, this.t().controlHeight - 4,
+            toneFill(this.t(), node.style, this.t().primaryFill),
+            toneInk(this.t(), node.style, this.t().primaryInk))
         }
         Column({ space: 2 }) {
           Text(node.text).fontSize(this.t().sizeBody + 1).fontFamily(this.textFamily()).width('100%')
@@ -2559,20 +3045,60 @@ export struct VeraPreview {
       Divider().strokeWidth(this.t().borderWidth).color(this.t().line)
         .margin({ top: this.t().padRow, bottom: this.t().padRow })
     } else if (node.kind === 'progress') {
-      Column({ space: 3 }) {
-        if (node.label.length > 0) {
-          Text(node.label).fontSize(this.t().sizeCaption).fontFamily(this.textFamily()).fontColor(this.t().inkSoft).width('100%')
+      Column({ space: 6 }) {
+        // The label on the left and how far along on the right, so the bar needs no second line to be read.
+        Row() {
+          Text(node.label).fontSize(this.t().sizeCaption).fontFamily(this.textFamily())
+            .fontWeight(Math.max(this.t().weightHeading, 500)).fontColor(this.t().inkStrong).layoutWeight(1)
+          Text(Math.round(100 * node.eventValue / (node.maximum > 0 ? node.maximum : 100)).toString() + '%')
+            .fontSize(this.t().sizeCaption).fontFamily(this.textFamily('metric'))
+            .fontWeight(Math.max(this.t().weightHeading, 500)).fontColor(this.t().primaryInk)
         }
+        .width('100%')
         Progress({
           value: node.eventValue,
           total: node.maximum > 0 ? node.maximum : 100,
           type: ProgressType.Linear
         })
           .width('100%')
+          .style({ strokeWidth: 10, strokeRadius: 5 })
           .color(toneEdge(this.t(), node.style, this.t().primary))
+          .backgroundColor(this.t().lineSoft)
       }
       .width('100%')
       .padding({ top: this.t().gapTight, bottom: this.t().gapTight })
+    } else if (node.kind === 'progressring') {
+      Column({ space: this.t().gapTight }) {
+        Stack({ alignContent: Alignment.Center }) {
+          Progress({
+            value: node.eventValue,
+            total: node.maximum > 0 ? node.maximum : 100,
+            type: ProgressType.Ring
+          })
+            .width(this.ringSize())
+            .height(this.ringSize())
+            .style({ strokeWidth: 12 })
+            .color(toneEdge(this.t(), node.style, this.t().primary))
+            .backgroundColor(this.t().lineSoft)
+          Text(node.text.length > 0 ? node.text :
+            Math.round(100 * node.eventValue / (node.maximum > 0 ? node.maximum : 100)).toString() + '%')
+            .fontSize(this.renderTextSize('heading'))
+            .fontFamily(this.textFamily('metric'))
+            .fontWeight(this.t().weightMetric)
+            .fontColor(toneInk(this.t(), node.style, this.t().ink))
+            .maxLines(1)
+            .textAlign(TextAlign.Center)
+            .width(this.ringSize() - 36)
+        }
+        if (node.label.length > 0) {
+          Text(node.label).fontSize(this.t().sizeCaption).fontFamily(this.textFamily())
+            .fontWeight(Math.max(this.t().weightHeading, 500)).fontColor(this.t().inkStrong)
+            .textAlign(TextAlign.Center).width('100%')
+        }
+      }
+      .width('100%')
+      .alignItems(HorizontalAlign.Center)
+      .padding({ top: this.t().gapBase, bottom: this.t().gapBase })
     } else if (node.kind === 'sparkline') {
       // The path commands are written directly in this box's own real vp
       // (chartWidth's own comment has the full story on why, and on the
@@ -2645,14 +3171,21 @@ export struct VeraPreview {
             // into the same four levels, so a label and its gridline always
             // land at the same height without either one measuring the other.
             Column() {
-              ForEach(this.sparklineTicks(node.maximum, node.minimum), (v: number, _index: number) => {
-                Text(v.toString()).fontSize(this.t().sizeCaption).fontFamily(this.textFamily())
+              ForEach(this.sparklineTicks(node.maximum, node.minimum), (v: string, _index: number) => {
+                Text(v).fontSize(this.t().sizeCaption).fontFamily(this.textFamily())
                   .fontColor(this.t().inkMuted)
-              }, (v: number, index: number) => index.toString())
+              }, (v: string, index: number) => index.toString() + v)
             }
             .height(VeraPreview.SPARKLINE_HEIGHT)
+            // The gridlines sit SPARKLINE_INSET inside the box; a caption is about 16vp tall, so half of it is
+            // taken off that to put each caption's middle on its gridline.
+            .padding({ top: VeraPreview.SPARKLINE_INSET - 8, bottom: VeraPreview.SPARKLINE_INSET - 8 })
             .justifyContent(FlexAlign.SpaceBetween)
             .alignItems(HorizontalAlign.End)
+            .onAreaChange((_old: Area, now: Area) => {
+              let w = now.width as number
+              if (Math.abs(w - this.sparklineAxisWidth) >= 1) { this.sparklineAxisWidth = w }
+            })
 
             Shape() {
               Path({ commands: this.sparklineGridCommands(node.maximum, node.minimum, this.chartWidth()) })
@@ -2677,6 +3210,12 @@ export struct VeraPreview {
                   .strokeWidth('3px')
                   .strokeLineCap(LineCapStyle.Round)
                   .strokeLineJoin(LineJoinStyle.Round)
+                Path({ commands: this.sparklineDotCommands(node.series, node.maximum, node.minimum, this.chartWidth()) })
+                  .fill(toneEdge(this.t(), node.style, this.t().primary))
+                  .stroke(Color.Transparent)
+                Path({ commands: this.sparklineDotCommands(node.series2, node.maximum, node.minimum, this.chartWidth()) })
+                  .fill(toneEdge(this.t(), node.series2Style, this.t().primary))
+                  .stroke(Color.Transparent)
               } else {
                 // The same line, closed down to the bottom edge and filled with
                 // the tone's soft background -- this is why it reads as a chart
@@ -2693,6 +3232,9 @@ export struct VeraPreview {
                   .strokeWidth('3px')
                   .strokeLineCap(LineCapStyle.Round)
                   .strokeLineJoin(LineJoinStyle.Round)
+                Path({ commands: this.sparklineDotCommands(node.series, node.maximum, node.minimum, this.chartWidth()) })
+                  .fill(toneEdge(this.t(), node.style, this.t().primary))
+                  .stroke(Color.Transparent)
               }
             }
             .layoutWeight(1)
@@ -2720,8 +3262,20 @@ export struct VeraPreview {
           .width('100%')
         }
         if (node.categories.length > 0 && !node.bars) {
-          Text(this.sparklineAxisText(node)).fontSize(this.t().sizeCaption).fontFamily(this.textFamily())
-            .fontColor(this.t().inkSoft).width('100%')
+          // One caption per point, each in the same equal slot its point is drawn in, so it stands under it.
+          Row() {
+            ForEach(this.sparklineLabels(node), (label: string, _index: number) => {
+              Column() {
+                Text(label).fontSize(this.t().sizeCaption).fontFamily(this.textFamily())
+                  .fontColor(this.t().inkSoft).maxLines(1).textAlign(TextAlign.Center)
+                  .width(VeraPreview.SPARKLINE_LABEL_BOX)
+              }
+              .layoutWeight(1)
+              .alignItems(HorizontalAlign.Center)
+            }, (label: string, index: number) => index.toString() + ':' + label)
+          }
+          .width('100%')
+          .padding({ left: this.sparklineAxisWidth + this.t().gapTight })
         }
       }
       .width('100%')

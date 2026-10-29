@@ -9,7 +9,7 @@ const {fragments} = loadVera('VeraTemplates')
 const {composeProgram} = loadVera('VeraSectionCompose')
 const {holesOf, holeValues} = loadVera('VeraHoles')
 const {compileVeraSource} = loadVera('VeraCompiler')
-const {smokeRun} = loadVera('VeraSmokeRun')
+const {smokeRun} = loadVera('VeraSmoke')
 const {VirtualMachine, deserializeVbc2, decodeRuntimeValue} = loadVera('VeraInterpreter')
 const {UiHostEnvironment, decodeVeraUi} = loadVera('VeraUi')
 const num = v => decodeRuntimeValue(['n', v])
@@ -36,7 +36,7 @@ function build(kinds, bodiesBySlot) {
   const src = composeProgram(kinds, globals, vals)
   const r = compileVeraSource(src)
   const vbc2 = r.vbc2 !== undefined ? r.vbc2 : r
-  assert.ok(smokeRun(vbc2).ok, 'smoke run')
+  assert.equal(smokeRun(r), '', 'smoke run')
   const env = new UiHostEnvironment()
   return {src, env, vm: new VirtualMachine(deserializeVbc2(vbc2), env)}
 }

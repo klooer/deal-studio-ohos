@@ -1,14 +1,13 @@
-// The composition record and structural edits: the record rebuilds exactly the program the Jev path
-// built, every edit op produces a program that compiles and runs, bad edits are refused, and Jev's
-// answer is read conservatively. No network.
+// The composition record and structural edits: the record rebuilds the program it describes, every edit op produces a
+// program that compiles and runs, bad edits are refused, and Jev's answer is read conservatively. No network.
 'use strict'
 const assert = require('node:assert/strict')
 const {loadVera} = require('./source-loader')
 const compose = loadVera('VeraSectionCompose')
 const {deepseek} = loadVera('DeepSeekEngine')
 const {settings} = loadVera('SettingsStore')
-const {buildFromTemplates} = loadVera('VeraTemplatePipeline')
 const C = loadVera('VeraComposition')
+const T = loadVera('VeraTemplates')
 const {compileVeraSource} = loadVera('VeraCompiler')
 const {VirtualMachine, deserializeVbc2} = loadVera('VeraInterpreter')
 const {UiHostEnvironment, decodeVeraUi} = loadVera('VeraUi')
@@ -23,12 +22,24 @@ function jev(sections, layout) {
   const answers = {}
   sections.forEach((k, i) => { answers['section' + (i + 1)] = {choice: k, confidence: 0.9} })
   if (layout) answers.__LAYOUT__ = {choice: layout, confidence: 0.9}
-  for (const k of ['needs_integration', 'needs_real_data', 'needs_search_or_form', 'needs_live_ticking', 'needs_multiple_counters', 'needs_logic']) answers['veto.' + k] = {noul: 0}
+  for (const k of ['needs_integration', 'needs_real_data', 'needs_search_or_form', 'needs_live_ticking', 'needs_multiple_counters', 'needs_multiple_series', 'needs_logic']) answers['veto.' + k] = {noul: 0}
   return compose.readSectionPick(JSON.stringify({answers}))
 }
+// A record for the given kinds, the way the composer stores one: the master list carries the rule a model wrote for it.
 const built = async (outcome) => {
-  compose.selectSections = async () => outcome
-  return buildFromTemplates('books', 'deepseek', () => {}, () => false)
+  const c = new C.Composition()
+  c.layout = outcome.layout || 'stack'; c.prompt = 'books'
+  for (const s of outcome.sections.filter(x => x.kind !== 'none')) {
+    const spec = T.fragments().find(f => f.kind === s.kind)
+    const values = new Map()
+    for (const f of spec.slots) values.set(f.token, f.values[0])
+    for (const f of spec.contentFields) values.set(f.token, f.fallback)
+    for (const f of spec.listFields) values.set(f.token, f.fallbackRows.map(r => r.reduce((t, v, i) => t.split('{' + i + '}').join(v), f.rowTemplate)).join(f.separator))
+    const holes = new Map(); if (s.kind === 'master_list') holes.set('rowMatches', lower)
+    c.blocks.push(new C.Block(s.kind, values, holes))
+  }
+  const source = C.composeFrom(c)
+  return {action: 'template', layout: c.layout, composition: C.compositionToJson(c), source}
 }
 const runs = src => { const r = compileVeraSource(src); const vm = new VirtualMachine(deserializeVbc2(r.vbc2 !== undefined ? r.vbc2 : r), new UiHostEnvironment()); decodeVeraUi(vm.execute('view', [vm.execute('init')])); return vm }
 

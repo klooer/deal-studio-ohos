@@ -49,6 +49,8 @@ import { findUiComponentsByEmbedding } from './VeraUiIndex'
 import { describeComponents, optionalComponents } from './VeraUiCatalog'
 import { TurnTiming, logTurn, logStep, trace, traceTurn } from './VeraTiming'
 import { searchToolSchema, webSearch, SEARCH_TOOL_NAME } from './VeraWebSearch'
+import { noteService, httpFailure, SERVICE_DEEPSEEK } from './ServiceHealth'
+import { noteTool } from './ToolLog'
 
 // Application generation uses this budget for both reasoning and source on every attempt.
 export const DEEPSEEK_GENERATION_MAX_TOKENS: number = 32768
@@ -419,6 +421,8 @@ export async function discoveryToolResult(name: string, need: string, round: num
       (results.length > 0 ? ' top=' + results[0].kind + ':' + results[0].name : ''))
     console.info('VERA-INTENT-TIMING need="' + need + '" tokenFullMs=' + tokenMs.toString() +
       ' embeddingFullMs=' + embedMs.toString() + ' callTotalMs=' + (Date.now() - startedAt).toString())
+    noteTool(name, need, Date.now() - startedAt, true, 'found ' + results.length.toString() + ' via ' + (embedResults !== null ? 'embedding' : 'keywords') +
+      ' (keywords ' + tokenMs.toString() + ' ms, embedding ' + embedMs.toString() + ' ms)')
     return intentResultsJson(results, await curatedSdkAlso(need))
   }
   if (name === SDK_TOOL_NAME) {
@@ -435,8 +439,11 @@ export async function discoveryToolResult(name: string, need: string, round: num
       (results.length > 0 ? ' top=' + results[0].kit + '.' + results[0].module + '.' + results[0].name : ''))
     console.info('VERA-SDK-TIMING need="' + need + '" tokenFullMs=' + tokenMs.toString() +
       ' embeddingFullMs=' + embedMs.toString() + ' callTotalMs=' + (Date.now() - startedAt).toString())
+    noteTool(name, need, Date.now() - startedAt, true, 'found ' + results.length.toString() + ' via ' + (embedResults !== null ? 'embedding' : 'keywords') +
+      ' (keywords ' + tokenMs.toString() + ' ms, embedding ' + embedMs.toString() + ' ms)')
     return sdkResultsJson(results)
   }
+  noteTool(name, need, 0, false, 'unknown tool')
   return 'Unknown discovery tool.'
 }
 
@@ -645,7 +652,7 @@ export class DeepSeekEngine {
         // offered tools, the model re-ran a search it already had (egg-3, 5 s).
         // Defined but not callable, so the cached prompt prefix still matches.
         turn = await this.streamOnce(messages, request.temperature, request.maxTokens, onToken,
-          request.repairByEdit ? TOOLS_NONE : TOOLS_AUTO, 'gen', round)
+          request.repairByEdit || request.toolsOff ? TOOLS_NONE : TOOLS_AUTO, 'gen', round)
       } catch (e) {
         this.generating = false
         throw e as Error
@@ -774,6 +781,7 @@ export class DeepSeekEngine {
       console.info('VERA-UI-TOOL round=' + round.toString() + ' need="' + need + '" found=[' +
         names.join(', ') + ']')
       let uiResult = uiResultsJson(names, note)
+      noteTool(UI_TOOL_NAME, need, Date.now() - callStartedAt, true, 'found ' + names.length.toString() + (names.length > 0 ? ': ' + names.join(', ') : ''))
       traceTool('gen', round, call.name, need, callStartedAt, uiResult)
       return toolResultMessage(call.id, uiResult)
     }
@@ -808,9 +816,11 @@ export class DeepSeekEngine {
         onText(soFar)
       }, TOOLS_OFF, 'sketch', 1)
       console.info('VERA-COMPOSE sketch ms=' + (Date.now() - startedAt).toString())
+      this.recordSideCall(thinking ? 'Plan of needs, thinking' : 'Plan of needs', startedAt, turn)
       return turn.content
     } catch (e) {
       console.warn('VERA-COMPOSE sketch failed: ' + (e as Error).message)
+      this.recordSideCall(thinking ? 'Plan of needs, thinking' : 'Plan of needs', startedAt, null)
       return null
     } finally {
       this.thinking = savedThinking
@@ -954,13 +964,16 @@ export class DeepSeekEngine {
         code = 200
       } else {
         this.cleanup(client)
+        noteService(SERVICE_DEEPSEEK, false, (e as Error).message)
         throw new Error(settings.providerLabel() + ' request failed: ' + (e as Error).message)
       }
     }
     this.cleanup(client)
     if (code !== 200) {
+      noteService(SERVICE_DEEPSEEK, false, httpFailure(code, this.rawBody))
       throw new Error(httpErrorMessage(code, this.rawBody))
     }
+    noteService(SERVICE_DEEPSEEK, true)
 
     let toolCalls: ToolCallAccumulator[] = []
     pending.forEach((tc: ToolCallAccumulator) => { toolCalls.push(tc) })

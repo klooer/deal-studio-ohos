@@ -79,6 +79,15 @@ export class ResolvedTheme {
   radiusSmall: number = 8
   borderWidth: number = 1
 
+  /** What an input is filled with and edged by: a step off the card it sits on, so it reads as a field. */
+  fieldFill: string = '#F8FAFC'
+  fieldLine: string = '#CBD6E4'
+
+  /** The lift under a card. Radius 0 draws none; editorial and technical stay flat on purpose. */
+  shadowRadius: number = 16
+  shadowOffsetY: number = 5
+  shadowColor: string = '#2B1A2440'
+
   padTight: number = 6
   padBase: number = 10
   padLoose: number = 16
@@ -128,6 +137,9 @@ export function makeTheme(preset: string): ResolvedTheme {
     t.dangerFill = '#FBE7E4'
     t.radiusControl = 16
     t.radiusSmall = 12
+    t.shadowRadius = 22
+    t.shadowOffsetY = 8
+    t.shadowColor = '#262C2724'
     t.padTight = 10
     t.padBase = 14
     t.padLoose = 20
@@ -166,7 +178,15 @@ export function makeTheme(preset: string): ResolvedTheme {
   } else if (preset === 'editorial') {
     // Editorial headings use a generic serif family and restrained borders.
     t.preset = 'editorial'
-    t.headingFontFamily = 'serif'
+    // No shadow at all: a radius of 0 still draws a hard copy of the box at the offset, so colour and offset go too.
+    t.shadowRadius = 0
+    t.shadowOffsetY = 0
+    t.shadowColor = '#00000000'
+    t.headingFontFamily = 'Noto Serif'
+    t.metricFontFamily = 'Noto Serif'
+    // A serif at 700 reads heavy on a phone; 600 keeps the contrast with body text without the weight.
+    t.weightDisplay = 600
+    t.weightMetric = 600
     t.onPrimary = '#FFFFFF'
     t.surfaceRaised = '#FFFFFF'
     t.secondaryFill = '#EDEAE3'
@@ -195,6 +215,10 @@ export function makeTheme(preset: string): ResolvedTheme {
   } else if (preset === 'technical') {
     // Technical metrics use a generic monospace family and a compact rhythm.
     t.preset = 'technical'
+    // No shadow at all: a radius of 0 still draws a hard copy of the box at the offset, so colour and offset go too.
+    t.shadowRadius = 0
+    t.shadowOffsetY = 0
+    t.shadowColor = '#00000000'
     t.metricFontFamily = 'monospace'
     t.surfaceRaised = '#FFFFFF'
     t.secondaryFill = '#E3E8EA'
@@ -276,22 +300,22 @@ export function makeTheme(preset: string): ResolvedTheme {
   t.surface = '#FFFFFF'
   if (t.preset === 'soft') {
     t.background = '#FAF7F2'; t.primary = '#6D5BD0'
-    t.sizeDisplay = 32; t.sizeMetric = 40; t.gapSection = 24; t.padCard = 20; t.radiusCard = 24
+    t.sizeDisplay = 32; t.sizeMetric = 40; t.gapSection = 32; t.padCard = 20; t.radiusCard = 24
   } else if (t.preset === 'expressive') {
     t.background = '#F7F3FF'; t.primary = '#7C3AED'
-    t.sizeDisplay = 36; t.sizeMetric = 44; t.gapSection = 28; t.padCard = 20; t.radiusCard = 20
+    t.sizeDisplay = 36; t.sizeMetric = 44; t.gapSection = 36; t.padCard = 20; t.radiusCard = 20
   } else if (t.preset === 'editorial') {
     t.background = '#FAFAF7'; t.primary = '#27272A'
-    t.sizeDisplay = 38; t.sizeMetric = 42; t.gapSection = 28; t.padCard = 20; t.radiusCard = 4
+    t.sizeDisplay = 38; t.sizeMetric = 42; t.gapSection = 36; t.padCard = 20; t.radiusCard = 4
   } else if (t.preset === 'technical') {
     t.background = '#F3F7F7'; t.primary = '#0F766E'
-    t.sizeDisplay = 30; t.sizeMetric = 36; t.gapSection = 20; t.padCard = 16; t.radiusCard = 8
+    t.sizeDisplay = 30; t.sizeMetric = 36; t.gapSection = 28; t.padCard = 16; t.radiusCard = 8
   } else if (t.preset === 'playful') {
     t.background = '#FFF7F4'; t.primary = '#BE185D'
-    t.sizeDisplay = 36; t.sizeMetric = 44; t.gapSection = 28; t.padCard = 20; t.radiusCard = 24
+    t.sizeDisplay = 36; t.sizeMetric = 44; t.gapSection = 36; t.padCard = 20; t.radiusCard = 24
   } else {
     t.background = '#F8FAFC'; t.primary = '#2563EB'
-    t.sizeDisplay = 32; t.sizeMetric = 40; t.gapSection = 24; t.padCard = 16; t.radiusCard = 16
+    t.sizeDisplay = 32; t.sizeMetric = 40; t.gapSection = 32; t.padCard = 16; t.radiusCard = 16
   }
   t.primaryFill = blendHex(t.primary, t.background, 0.88)
   t.primaryInk = t.primary
@@ -435,6 +459,9 @@ function applyDark(t: ResolvedTheme, preset: string): void {
   }
   t.surfaceDisabled = t.lineSoft
   t.inkDisabled = t.inkMuted
+  // A shadow on near-black reads only as a darker halo, so it is kept small and
+  // dense; the raised surface colour does most of the lifting after dark.
+  if (t.shadowRadius > 0) { t.shadowRadius = 10; t.shadowOffsetY = 3; t.shadowColor = '#66000000' }
 
   // A tone that was chosen to read on white has to be brought up to read on
   // near-black. Editorial's primary is very nearly black by day, so lightening
@@ -484,6 +511,8 @@ export function resolveTheme(preset: string, primaryHex: string, dark: boolean):
   // and lightened with it rather than being overwritten by the preset's.
   if (dark) { applyDark(t, t.preset) }
   resolveTextContrast(t, dark)
+  t.fieldFill = t.background
+  t.fieldLine = t.lineStrong
   return t
 }
 

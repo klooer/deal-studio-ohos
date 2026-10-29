@@ -6,6 +6,7 @@ oh_modules/
 /tmp/
 /entry/.cxx/
 local.properties
+results/*.prev
 
 # The device catalogue never belongs here.
 #
@@ -40,3 +41,5 @@ entry/src/main/cpp/build-host/
 # tsc's own output for the host harness (tools/vera-harness) -- regenerate with
 # `tsc -p tools/vera-harness/tsconfig.json`, per tools/vera-harness/README.md.
 tools/vera-harness/out/
+.deepseekkey
+.jevkey

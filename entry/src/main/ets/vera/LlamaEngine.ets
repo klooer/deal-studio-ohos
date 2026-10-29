@@ -33,6 +33,8 @@ export class GenerateRequest {
   previousSource: string = ''
   /** previousSource failed to compile and the reply is SEARCH/REPLACE edits to it (VeraRepair), returned raw. */
   repairByEdit: boolean = false
+  /** The model may not call tools (search, SDK lookup) for this request; they stay defined so the cached prompt prefix still matches. */
+  toolsOff: boolean = false
   /** std/ui components the system prompt describes; empty means all of them. */
   uiSelected: string[] = []
   /** Offer find_ui_component to the model. */

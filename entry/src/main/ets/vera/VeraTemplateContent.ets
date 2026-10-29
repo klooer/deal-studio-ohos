@@ -1,12 +1,8 @@
 /**
- * Experiment only (experiment/jev-template-select branch): fills the free-
- * text fields of an already-picked canned template (VeraTemplates.ets's
- * ContentFieldSpec) with a separate, narrow generative call -- never Jev,
- * which cannot write free text at all (see VeraTemplateSelect.ets's header
- * comment). This file only runs after VeraTemplateSelect.selectTemplate()
- * has already returned a non-null pick; it never influences which template
- * is chosen, and a failure here never falls through to normal generation --
- * each field just keeps its literal default.
+ * Fills the free-text fields of the sections picked for a screen (VeraTemplates.ets's ContentFieldSpec) with a
+ * separate, narrow generative call -- never Jev, which cannot write free text at all. It never influences
+ * which sections are chosen, and a failure here never falls through to normal generation -- each field just
+ * keeps its literal default.
  *
  * Mode-aware, matching GeneratePage.ets's three generation modes:
  *  - 'deepseek': a real HTTP call via DeepSeekEngine.extractTemplateContent,
@@ -21,7 +17,7 @@
  * 'deepseek'.
  */
 
-import { ContentFieldSpec, ListFieldSpec, FragmentSpec, contentFieldsFor, fragments } from './VeraTemplates'
+import { ContentFieldSpec, ListFieldSpec, FragmentSpec, fragments } from './VeraTemplates'
 import { GenerateRequest, engine } from './LlamaEngine'
 import { deepseek } from './DeepSeekEngine'
 
@@ -45,8 +41,7 @@ function defaultResult(fields: ContentFieldSpec[], note: string): ContentFillRes
 /**
  * `searchText`, when non-empty, is a web search result the caller already ran for a request that
  * needs real/current facts (VeraSectionCompose.ets's needsRealData) -- grounds the answer instead
- * of leaving every such field a generic placeholder. Defaulted so fillTemplateContent's existing
- * one-arg call is untouched.
+ * of leaving every such field a generic placeholder.
  */
 function buildContentPrompt(fields: ContentFieldSpec[], searchText: string = '', lists: FlatListField[] = []): string {
   let parts: string[] = []
@@ -115,6 +110,16 @@ function escapeListCell(raw: string, maxLength: number): string {
 }
 
 /** A decimal such as "31.2397" or "-121.5" within [-limit, limit], else ''. Text kept as written, only trimmed. */
+/** A number with an optional fraction, as the model wrote it ("176.5", "144,104,100", "12 cm"); '0' when there is none. */
+function checkedNumber(raw: string): string {
+  let text = raw.split(',').join('').split(' ').join('')
+  let found = text.match(/-?[0-9]+(\.[0-9]+)?/)
+  if (found === null) { return '0' }
+  let value = parseFloat(found[0])
+  if (!isFinite(value) || value > 1000000000 || value < -1000000000) { return '0' }
+  return (Math.round(value * 100) / 100).toString()
+}
+
 function checkedCoordinate(raw: string, limit: number): string {
   let text = raw.trim()
   if (!/^-?[0-9]{1,3}(\.[0-9]{1,8})?$/.test(text)) { return '' }
@@ -126,6 +131,7 @@ function checkedCoordinate(raw: string, limit: number): string {
 /** One cell of a row as it is spliced: a number literal, a checked value or escaped text, by the column's kind and check. */
 function renderCell(spec: ListFieldSpec, column: number, cell: string): string {
   let check = column < spec.columnChecks.length ? spec.columnChecks[column] : ''
+  if (check === 'number') { return checkedNumber(cell) }
   if (check === 'lat') { return checkedCoordinate(cell, 90) }
   if (check === 'lon') { return checkedCoordinate(cell, 180) }
   if (check === 'minutes') {
@@ -220,10 +226,26 @@ export function expandListRows(raw: Object | undefined, spec: ListFieldSpec): Li
  * which the caller already treats as "generated normally" -- this exists to
  * protect the fast path's hit rate, not as a safety boundary.
  */
+/**
+ * `s` cut to `maxLength`, at the end of a word and not through one ("Nanjing Road Pedestrian Stre" is not a name), without a
+ * small word left hanging at the end ("Lujiazui skyline and"). A text with no space in its first half is cut where it is.
+ */
+export function cutAtWord(s: string, maxLength: number): string {
+  let cut = s.substring(0, maxLength)
+  if (s.charAt(maxLength) !== ' ') {
+    let at = cut.lastIndexOf(' ')
+    if (at >= Math.floor(maxLength / 2)) { cut = cut.substring(0, at) }
+  }
+  cut = cut.trim()
+  let hanging = /\s+(and|or|of|the|a|an|to|in|on|at|for|with|by)$/i
+  while (hanging.test(cut) && cut.length > 4) { cut = cut.replace(hanging, '') }
+  return cut
+}
+
 export function escapeForVeraString(raw: string, maxLength: number): string {
   let s = raw.replace(/[\r\n]+/g, ' ').trim()
   s = s.replace(/_{2,}/g, '_')
-  if (s.length > maxLength) { s = s.substring(0, maxLength).trim() }
+  if (s.length > maxLength) { s = cutAtWord(s, maxLength) }
   s = s.split('\\').join('\\\\').split('"').join('\\"')
   return s
 }
@@ -288,22 +310,6 @@ function fillContentLocal(systemPrompt: string, userPrompt: string, maxTokens: n
 }
 
 /**
- * Fills the free-text fields of an already-picked template. Never throws,
- * never blocks the template fast path: every failure degrades to that
- * field's literal default, and `note` always explains what happened.
- */
-export async function fillTemplateContent(templateId: string, userPrompt: string, mode: string): Promise<ContentFillResult> {
-  let fields = contentFieldsFor(templateId)
-  if (fields.length === 0) { return new ContentFillResult(new Map<string, string>(), '') }
-  if (mode === 'server') { return defaultResult(fields, 'content=default(server mode)') }
-  let prompt = buildContentPrompt(fields)
-  let raw: string | null = mode === 'local'
-    ? fillContentLocal(prompt, userPrompt, 150)
-    : await deepseek.extractTemplateContent(prompt, userPrompt, 150)
-  return parseContentResponse(raw, fields)
-}
-
-/**
  * One content field flattened for a single-call, multi-slot composed request: `token` is still
  * the field's generic form (containing "IDX" for a per-slot field, or the literal "__TITLE__" for
  * the one global field), and `jsonKey` is the instance-qualified key actually asked of the model
@@ -354,11 +360,10 @@ function listFieldsForKind(kind: string): ListFieldSpec[] {
 }
 
 /**
- * Fills the free-text fields of an already-composed set of section picks -- the section-palette
- * counterpart to fillTemplateContent above, for VeraSectionCompose.ets. One call covers the whole
+ * Fills the free-text fields of an already-composed set of section picks, for VeraSectionCompose.ets. One call covers the whole
  * screen: a single shared title plus every chosen (non-'none') slot's own content fields, each
  * asked under an instance-qualified json key so two slots holding the same kind never collide.
- * Same contract as fillTemplateContent: never throws, every field that fails or is missing keeps
+ * Never throws, every field that fails or is missing keeps
  * its literal fallback, and `note` always explains what happened.
  */
 /** Asks the content model: (system prompt, request, token budget) -> its reply, or null when there was none. */

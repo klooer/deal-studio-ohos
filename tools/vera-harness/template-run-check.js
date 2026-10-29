@@ -63,12 +63,13 @@ assert.ok(shown.indexOf('Taxi') < shown.indexOf('Lunch'), 'newest first')
 call('removeLastRecord1', int(0))
 shown = texts(view(vm, state)).join('|')
 assert.match(shown, /\|12\|/); assert.doesNotMatch(shown, /Taxi/)
-// smokeRun: every fragment starts and draws something; a program that traps in view() does not pass
-const {smokeRun} = loadVera('VeraSmokeRun')
+// smokeRun: every fragment starts, draws something and survives every handler tapped; a program that traps in view(), or
+// draws nothing, does not pass
+const {smokeRun} = loadVera('VeraSmoke')
 for (const f of fragments()) {
   const src = composeProgram([f.kind], globals, [values(f.kind)])
-  const r = smokeRun(compileVeraSource(src).vbc2)
-  assert.ok(r.ok, f.kind + ': ' + r.error); assert.ok(r.nodes >= 2)
+  const r = smokeRun(compileVeraSource(src))
+  assert.equal(r, '', f.kind + ': ' + r)
 }
 const trap = `import * as ui from "std/ui"
 
@@ -86,6 +87,21 @@ function view(state: AppState): ui.View {
   let v: number = state.items[3];
   return ui.Column("default", [ui.Text("body", ui.numberToString(v))]);
 }`
-const bad = smokeRun(compileVeraSource(trap).vbc2)
-assert.equal(bad.ok, false); assert.ok(bad.error.length > 0)
+const bad = smokeRun(compileVeraSource(trap))
+assert.ok(bad.length > 0)
+const empty = `import * as ui from "std/ui"
+
+@jsonable
+class AppState {
+  n: number;
+}
+
+function init(): AppState {
+  return {n: 0};
+}
+
+function view(state: AppState): ui.View {
+  return ui.Column("default", []);
+}`
+assert.match(smokeRun(compileVeraSource(empty)), /drew an empty screen/)
 console.log('template-run-check: ok (' + fragments().length + ' fragments)')

@@ -1,10 +1,24 @@
 import fs from '@ohos.file.fs'
 
+
 export class Project {
   id: string = ''
   name: string = ''
   icon: string = ''
   createdAt: number = 0
+}
+
+export class VersionMetrics {
+  provider: string = ''
+  model: string = ''
+  elapsedMs: number = 0
+  runs: number = 0
+  attempts: number = 0
+  inputTokens: number = -1
+  cacheHitTokens: number = -1
+  outputTokens: number = -1
+  estimatedUsd: number = -1
+  partial: boolean = true
 }
 
 export class Version {
@@ -20,6 +34,8 @@ export class Version {
    * program was built from was lost as soon as it exceeded a hundred characters.
    */
   prompt: string = ''
+  lastPrompt: string = ''
+  parentVersionId: string = ''
   /**
    * How the version came about when it began as a composed template: the section kinds Jev chose,
    * comma-separated ("record_log,bar_chart"), with "+model" appended when the model then rewrote
@@ -31,6 +47,7 @@ export class Version {
    * model has not rewritten: what a structural edit rebuilds the program from. Empty otherwise.
    */
   composition: string = ''
+  metrics: VersionMetrics | null = null
   createdAt: number = 0
 }
 
@@ -203,6 +220,7 @@ export class ProjectStore {
 
   deleteProject(id: string): void {
     let projects = this.readIndex()
+    if (!projects.some((p: Project) => p.id === id)) { return }
     let filtered: Project[] = []
     for (let p of projects) {
       if (p.id !== id) { filtered.push(p) }
@@ -239,6 +257,14 @@ export class ProjectStore {
     return this.parseVersion(text)
   }
 
+  getLatestRunnableVersion(projectId: string): Version | null {
+    let versions = this.listVersions(projectId)
+    for (let version of versions) {
+      if (version.vbc2.length > 0) { return version }
+    }
+    return null
+  }
+
   getLatestVersion(projectId: string): Version | null {
     let versions = this.listVersions(projectId)
     if (versions.length === 0) { return null }
@@ -246,7 +272,8 @@ export class ProjectStore {
   }
 
   createVersion(projectId: string, source: string, vbc2: string, note: string,
-      prompt: string = '', origin: string = '', composition: string = ''): Version {
+      prompt: string = '', origin: string = '', composition: string = '',
+      lastPrompt: string = '', parentVersionId: string = '', metrics: VersionMetrics | null = null): Version {
     ensureDir(this.projectDir(projectId))
     let v = new Version()
     v.id = generateId()
@@ -255,8 +282,11 @@ export class ProjectStore {
     v.vbc2 = vbc2
     v.note = note
     v.prompt = prompt.length > 0 ? prompt : note
+    v.lastPrompt = lastPrompt.length > 0 ? lastPrompt : v.prompt
+    v.parentVersionId = parentVersionId
     v.origin = origin
     v.composition = composition
+    v.metrics = metrics
     v.createdAt = Date.now()
     let obj: Record<string, Object> = {}
     obj['id'] = v.id
@@ -265,8 +295,11 @@ export class ProjectStore {
     obj['vbc2'] = v.vbc2
     obj['note'] = v.note
     obj['prompt'] = v.prompt
+    obj['lastPrompt'] = v.lastPrompt
+    obj['parentVersionId'] = v.parentVersionId
     obj['origin'] = v.origin
     obj['composition'] = v.composition
+    if (v.metrics !== null) { obj['metrics'] = v.metrics }
     obj['createdAt'] = v.createdAt
     writeJson(this.versionPath(projectId, v.id), JSON.stringify(obj))
     return v
@@ -284,16 +317,53 @@ export class ProjectStore {
     obj['note'] = v!.note
     // Rewriting the bytecode must not drop the request this version came from.
     obj['prompt'] = v!.prompt
+    obj['lastPrompt'] = v!.lastPrompt
+    obj['parentVersionId'] = v!.parentVersionId
     obj['origin'] = v!.origin
     obj['composition'] = v!.composition
+    if (v!.metrics !== null) { obj['metrics'] = v!.metrics! }
     obj['createdAt'] = v!.createdAt
     writeJson(this.versionPath(projectId, versionId), JSON.stringify(obj))
   }
 
-  deleteVersion(projectId: string, versionId: string): void {
-    try { fs.unlinkSync(this.versionPath(projectId, versionId)) } catch (_e) {}
-    // The sibling state file would otherwise outlive the program it belongs to.
+  deleteVersion(projectId: string, versionId: string): boolean {
+    let versions = this.listVersions(projectId)
+    let found = false
+    for (let v of versions) {
+      if (v.id === versionId) { found = true; break }
+    }
+    if (!found) { return false }
+    if (versions.length === 1) {
+      this.deleteProject(projectId)
+      return true
+    }
+    fs.unlinkSync(this.versionPath(projectId, versionId))
     this.clearState(projectId, versionId)
+    return false
+  }
+
+  private metricNumber(obj: Record<string, Object>, key: string): number {
+    let value = obj[key]
+    return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : -1
+  }
+
+  private parseMetrics(raw: Object): VersionMetrics | null {
+    if (raw === null || raw === undefined || typeof raw !== 'object' || Array.isArray(raw)) { return null }
+    let obj = raw as Record<string, Object>
+    let metrics = new VersionMetrics()
+    metrics.provider = typeof obj['provider'] === 'string' ? obj['provider'] as string : ''
+    metrics.model = typeof obj['model'] === 'string' ? obj['model'] as string : ''
+    metrics.elapsedMs = this.metricNumber(obj, 'elapsedMs')
+    metrics.runs = this.metricNumber(obj, 'runs')
+    metrics.attempts = this.metricNumber(obj, 'attempts')
+    metrics.inputTokens = this.metricNumber(obj, 'inputTokens')
+    metrics.cacheHitTokens = this.metricNumber(obj, 'cacheHitTokens')
+    metrics.outputTokens = this.metricNumber(obj, 'outputTokens')
+    metrics.estimatedUsd = this.metricNumber(obj, 'estimatedUsd')
+    metrics.partial = obj['partial'] !== false || metrics.elapsedMs < 0 || metrics.runs < 0 ||
+      metrics.attempts < 0 || metrics.inputTokens < 0 || metrics.cacheHitTokens < 0 ||
+      metrics.outputTokens < 0 || metrics.estimatedUsd < 0
+    return metrics
   }
 
   private parseVersion(text: string): Version | null {
@@ -312,8 +382,11 @@ export class ProjectStore {
       v.note = (obj['note'] as string) || ''
       // Versions saved before prompts were kept fall back to the truncated note.
       v.prompt = (obj['prompt'] as string) || v.note
+      v.lastPrompt = (obj['lastPrompt'] as string) || v.prompt
+      v.parentVersionId = (obj['parentVersionId'] as string) || ''
       v.origin = (obj['origin'] as string) || ''
       v.composition = (obj['composition'] as string) || ''
+      v.metrics = this.parseMetrics(obj['metrics'])
       v.createdAt = obj['createdAt'] as number
       return v
     } catch (_e) { return null }

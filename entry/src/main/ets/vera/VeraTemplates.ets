@@ -1,24 +1,21 @@
 /**
- * Experiment only (experiment/jev-template-select branch): two hand-written,
- * self-contained `.vera` programs, each with a few cosmetic placeholder
- * tokens that VeraTemplateSelect.ets fills in from a closed set of values
- * before handing the result to compileVeraSource (see VeraTemplateSelect.ets's
- * header comment for why those are closed-set, Jev-answerable choices).
+ * The catalogue of blocks and the closed sets Jev answers from.
  *
- * A second kind of token, declared below as ContentFieldSpec, holds the
- * title and item/label text instead. These are NOT answered by Jev -- they
- * are filled, best-effort, by VeraTemplateContent.ets's separate narrow
- * generative call, with a literal fallback (the values below) on any
- * failure. This is the one place in the pipeline that renders text from the
- * user's own request rather than a fixed closed-set identifier.
+ * SlotSpec and VetoSpec are the closed-set questions (VeraSectionCompose.ets asks them in one request): a
+ * cosmetic choice per slot, and a yes/no gate on the whole request. ContentFieldSpec holds the title and
+ * item/label text instead. These are NOT answered by Jev -- they are filled, best-effort, by
+ * VeraTemplateContent.ets's separate narrow generative call, with a literal fallback on any failure. This is
+ * the one place in the pipeline that renders text from the user's own request rather than a fixed closed-set
+ * identifier.
  *
- * Shape follows docs/examples/shanghai-layover.vera: import, @jsonable state,
- * init(), pure updaters, view(). Only `//` comments are legal in this
- * language -- a /* block *\/ will not parse.
+ * FragmentSpec is the one block format: the catalogue's sections (fragments()) and the composer's parts
+ * (VeraCompose.ets) are both FragmentSpecs.
  *
- * Every style token substituted into these two sources is one already
- * registered in VeraUiCatalog.ets's STYLE_SETS (apptheme, header, listgroup,
- * metricgroup, intstat) -- checked there, not invented here.
+ * Shape follows docs/examples/shanghai-layover.vera: import, @jsonable state, init(), pure updaters, view().
+ * Only `//` comments are legal in this language -- a /* block *\/ will not parse.
+ *
+ * Every style token substituted into a block is one already registered in VeraUiCatalog.ets's STYLE_SETS
+ * (apptheme, header, listgroup, metricgroup, intstat) -- checked there, not invented here.
  */
 
 export class SlotSpec {
@@ -38,13 +35,20 @@ export class SlotSpec {
    * 0.3 to "show the balances instead of the totals" for a request that only mentioned both.
    */
   above: number
-  constructor(token: string, values: string[], kind: string, instructions: string, criteria: Map<string, string>, above: number = -1) {
+  /**
+   * The phone actions (the composer's effect ids) the block does itself once this slot takes its second value: a screen that
+   * also keeps a part for one of them would show the same button twice.
+   */
+  provides: string[]
+  constructor(token: string, values: string[], kind: string, instructions: string, criteria: Map<string, string>, above: number = -1,
+      provides: string[] = []) {
     this.token = token
     this.values = values
     this.kind = kind
     this.instructions = instructions
     this.criteria = criteria
     this.above = above
+    this.provides = provides
   }
 }
 
@@ -52,7 +56,7 @@ export class SlotSpec {
  * A shared yes/no gate asked once per request, independent of which template
  * matches -- unlike SlotSpec there is no token to substitute and no `values`
  * list, just a probability that can kill the whole pick. See readPick's veto
- * loop in VeraTemplateSelect.ets.
+ * loop in VeraSectionCompose.ets.
  */
 export class VetoSpec {
   /** Stable key in the request/response, prefixed "veto." there. */
@@ -108,224 +112,9 @@ export class ContentFieldSpec {
   }
 }
 
-export function contentFieldsFor(templateId: string): ContentFieldSpec[] {
-  if (templateId === 'list_detail') {
-    return [
-      new ContentFieldSpec('__TITLE__', 'title', 'Checklist', 'Short title for the whole list (2-4 words)', 24),
-      new ContentFieldSpec('__ITEM1__', 'item1', 'First item', 'Name of the first checklist item', 28),
-      new ContentFieldSpec('__ITEM2__', 'item2', 'Second item', 'Name of the second checklist item', 28),
-      new ContentFieldSpec('__ITEM3__', 'item3', 'Third item', 'Name of the third checklist item', 28)
-    ]
-  }
-  if (templateId === 'dashboard') {
-    return [
-      new ContentFieldSpec('__TITLE__', 'title', 'Demo Dashboard', 'Short title for the dashboard screen (2-4 words)', 24),
-      new ContentFieldSpec('__STAT1_LABEL__', 'stat1_label', 'Count', 'Label for the first number shown (1-2 words)', 16),
-      new ContentFieldSpec('__STAT2_LABEL__', 'stat2_label', 'Total', 'Label for the second number shown (1-2 words)', 16),
-      new ContentFieldSpec('__STAT3_LABEL__', 'stat3_label', 'Remaining', 'Label for the third number shown (1-2 words)', 16)
-    ]
-  }
-  return []
-}
-
-export class TemplateSpec {
-  id: string
-  /** What this template is, shown to Jev as the criteria text for the top-level pick. */
-  criteria: string
-  source: string
-  slots: SlotSpec[]
-  constructor(id: string, criteria: string, source: string, slots: SlotSpec[]) {
-    this.id = id
-    this.criteria = criteria
-    this.source = source
-    this.slots = slots
-  }
-}
-
-const BANNER_SHOWN: string = `,
-    ui.Section("supporting", "", "", [
-      ui.InsetBanner("default", "Demo banner", "This screen comes from a canned template; nothing here is personalized.", "", "", "info")
-    ])`
-
-const LIST_DETAIL_SOURCE: string = `import * as ui from "std/ui"
-
-@jsonable
-class Item {
-  label: string;
-  done: boolean;
-}
-
-@jsonable
-class AppState {
-  items: Item[];
-  lastToggled: number;
-}
-
-function init(): AppState {
-  let items: Item[] = [
-    {label: "__ITEM1__", done: false},
-    {label: "__ITEM2__", done: false},
-    {label: "__ITEM3__", done: false}
-  ];
-  return {items: items, lastToggled: -1};
-}
-
-function toggle(state: AppState, index: number): AppState {
-  let out: Item[] = [];
-  let i: number = 0;
-  while (i < state.items.length()) {
-    let it: Item = state.items[i];
-    if (i === index) {
-      out.push({label: it.label, done: !it.done});
-    } else {
-      out.push(it);
-    }
-    i = i + 1;
-  }
-  return {items: out, lastToggled: index};
-}
-
-function view(state: AppState): ui.View {
-  let count: number = state.items.length();
-  let doneCount: number = 0;
-  let i: number = 0;
-  while (i < count) {
-    if (state.items[i].done) { doneCount = doneCount + 1; }
-    i = i + 1;
-  }
-  let rows: ui.View[] = [];
-  let j: number = 0;
-  while (j < count) {
-    let it: Item = state.items[j];
-    let icon: string = "pin";
-    let subtitle: string = "not done";
-    if (it.done) { icon = "check"; subtitle = "done"; }
-    rows.push(ui.ListItem("default", it.label, subtitle, "", "toggle", j, true, icon));
-    j = j + 1;
-  }
-  return ui.AppTheme("__THEME__", "", [
-    ui.Header("__HEADER_STYLE__", "__TITLE__", "", ui.numberToString(doneCount) + " of " + ui.numberToString(count) + " done", "check"),
-    ui.Section("content", "", "", [
-      ui.When(count === 0, ui.EmptyState("default", "Nothing here", "Add an item to get started.", "", "", "pin")),
-      ui.When(count > 0, ui.ListGroup("__LIST_STYLE__", "", rows))
-    ])__BANNER_SECTION__
-  ]);
-}
-`
-
-const DASHBOARD_SOURCE: string = `import * as ui from "std/ui"
-
-@jsonable
-class AppState {
-  count: number;
-  total: number;
-}
-
-function init(): AppState {
-  return {count: 0, total: 100};
-}
-
-function increment(state: AppState, ignored: number): AppState {
-  return {count: state.count + 1, total: state.total};
-}
-
-function reset(state: AppState, ignored: number): AppState {
-  return {count: 0, total: state.total};
-}
-
-function view(state: AppState): ui.View {
-  let remaining: number = state.total - state.count;
-  return ui.AppTheme("__THEME__", "", [
-    ui.Header("default", "__TITLE__", "", "A canned template screen with generic numbers", "clock"),
-    ui.Section("summary", "", "", [
-      ui.MetricGroup("__METRIC_STYLE__", 3, [
-        ui.NumberStat("default", "__STAT1_LABEL__", state.count, "", "", 1, "", "pin"),
-        ui.NumberStat("__ACCENT_STAT__", "__STAT2_LABEL__", state.total, "", "", 1, "", "check"),
-        ui.NumberStat("default", "__STAT3_LABEL__", remaining, "", "", 1, "", "clock")
-      ])
-    ]),
-    ui.Section("content", "", "", [
-      ui.ActionBar("spread", [
-        ui.Button("primary", "Add one", "increment", 0, true),
-        ui.Button("secondary", "Reset", "reset", 0, true)
-      ])
-    ])__BANNER_SECTION__
-  ]);
-}
-`
-
-function bannerSlot(): SlotSpec {
-  let criteria: Map<string, string> = new Map<string, string>()
-  criteria.set('true', 'yes, show one')
-  criteria.set('false', 'no')
-  return new SlotSpec('__BANNER_SECTION__', ['hide', 'show'], 'noul',
-    'Does this app need a standing info note visible at all times?', criteria)
-}
-
-function listDetailSlots(): SlotSpec[] {
-  let theme: Map<string, string> = new Map<string, string>()
-  theme.set('clean', 'restrained and neutral')
-  theme.set('soft', 'calm and friendly')
-  theme.set('expressive', 'bold and atmospheric')
-  let header: Map<string, string> = new Map<string, string>()
-  header.set('default', 'left-aligned')
-  header.set('center', 'centered')
-  let density: Map<string, string> = new Map<string, string>()
-  density.set('default', 'normal spacing')
-  density.set('compact', 'tighter spacing')
-  density.set('comfortable', 'looser spacing')
-  return [
-    new SlotSpec('__THEME__', ['clean', 'soft', 'expressive'], 'choice',
-      'Which look fits best: clean (restrained), soft (calm, friendly) or expressive (bold)?', theme),
-    new SlotSpec('__HEADER_STYLE__', ['default', 'center'], 'choice',
-      'Should the title block be left-aligned (default) or centered?', header),
-    new SlotSpec('__LIST_STYLE__', ['default', 'compact', 'comfortable'], 'choice',
-      'How dense should the list rows be?', density),
-    bannerSlot()
-  ]
-}
-
-function dashboardSlots(): SlotSpec[] {
-  let theme: Map<string, string> = new Map<string, string>()
-  theme.set('clean', 'restrained and neutral')
-  theme.set('technical', 'dense, precise numbers')
-  theme.set('playful', 'energetic')
-  let density: Map<string, string> = new Map<string, string>()
-  density.set('default', 'normal spacing')
-  density.set('compact', 'tighter spacing')
-  density.set('spacious', 'looser spacing')
-  let accent: Map<string, string> = new Map<string, string>()
-  accent.set('default', 'no, same tone as the rest')
-  accent.set('accent', 'yes, highlighted')
-  return [
-    new SlotSpec('__THEME__', ['clean', 'technical', 'playful'], 'choice',
-      'Which look fits best: clean (restrained), technical (dense, precise) or playful (energetic)?', theme),
-    new SlotSpec('__METRIC_STYLE__', ['default', 'compact', 'spacious'], 'choice',
-      'How dense should the summary numbers be?', density),
-    new SlotSpec('__ACCENT_STAT__', ['default', 'accent'], 'choice',
-      'Should the middle number stand out with an accent tone?', accent),
-    bannerSlot()
-  ]
-}
-
-export function templates(): TemplateSpec[] {
-  return [
-    new TemplateSpec('list_detail',
-      'A browsable list of items the person can check off or mark one at a time',
-      LIST_DETAIL_SOURCE, listDetailSlots()),
-    new TemplateSpec('dashboard',
-      'A small dashboard of a few summary numbers with a couple of actions',
-      DASHBOARD_SOURCE, dashboardSlots())
-  ]
-}
-
-export function bannerLiteral(): string { return BANNER_SHOWN }
-
 /**
- * Bare view expression for the same banner, for VeraSectionCompose.ets's composer -- which
- * builds `view()` as a sequence of `sections.push(...)` calls rather than one array literal, so
- * it needs the banner as a standalone `ui.Section(...)` expression, not BANNER_SHOWN's
- * leading-comma array-splice text.
+ * The standing info banner as a bare view expression, for VeraSectionCompose.ets's composer -- which
+ * builds `view()` as a sequence of `sections.push(...)` calls rather than one array literal.
  */
 export function bannerSectionView(): string {
   return `ui.Section("supporting", "", "", [
@@ -378,7 +167,7 @@ export class ListFieldSpec {
   numericColumns: number[]
   /**
    * Per column, a value check applied before splicing: '' none, 'lat' and 'lon' (a decimal within the range of a
-   * latitude / longitude, else the cell becomes empty), 'minutes' (a whole number 5 to 600, else 60), 'seconds' (a whole number 5 to 86400, else 60).
+   * latitude / longitude, else the cell becomes empty), 'number' (a number with an optional fraction, else 0), 'minutes' (a whole number 5 to 600, else 60), 'seconds' (a whole number 5 to 86400, else 60).
    */
   columnChecks: string[]
   constructor(token: string, key: string, hint: string, columnHints: string[], columnMax: number[], rowTemplate: string,
@@ -463,20 +252,26 @@ export class PortSpec {
    * a value derived from the fragment's state, such as how many rows are done.
    */
   computed: boolean
-  constructor(dir: string, name: string, type: string, ref: string, fallback: string = '', computed: boolean = false) {
+  /**
+   * reads only: the fragment makes sense without it (its fallback stands in), so it still stands alone and is not a reader of
+   * another block; a value the screen's own figures may give it, such as the time by which a list of stops must be over.
+   */
+  optional: boolean
+  constructor(dir: string, name: string, type: string, ref: string, fallback: string = '', computed: boolean = false,
+      optional: boolean = false) {
     this.dir = dir
     this.name = name
     this.type = type
     this.ref = ref
     this.fallback = fallback
     this.computed = computed
+    this.optional = optional
   }
 }
 
 /**
- * A pre-authored, parameterized building block for VeraSectionCompose.ets's composer -- the
- * dynamic-composition counterpart to TemplateSpec, picked per section slot instead of picking one
- * whole-screen TemplateSpec. See VeraSectionCompose.ets's header comment for the full composition
+ * A pre-authored, parameterized building block for VeraSectionCompose.ets's composer, picked per
+ * section slot. See VeraSectionCompose.ets's header comment for the full composition
  * design (instance indexing, the __PASSTHROUGH__ token, why local view() variables need no
  * indexing but AppState fields and function names do).
  */
@@ -560,7 +355,7 @@ function checklistFragment(): FragmentSpec {
   listStyle.set('comfortable', 'looser spacing')
   return new FragmentSpec(
     'checklist',
-    'A browsable list of items the person can check off or mark one at a time',
+    'A browsable list of items the person can check off or mark one at a time; it is not a deck of cards to flip, a quiz or a game',
     `@jsonable
 class Item {
   label: string;
@@ -603,10 +398,9 @@ function doneCountIDX(state: AppState): number {
     let j: number = 0;
     while (j < count) {
       let it: Item = state.itemsIDX[j];
-      let icon: string = "pin";
-      let subtitle: string = "not done";
-      if (it.done) { icon = "check"; subtitle = "done"; }
-      if (it.detail.length() > 0) { subtitle = it.detail + " - " + subtitle; }
+      let icon: string = "list";
+      let subtitle: string = it.detail;
+      if (it.done) { icon = "check"; subtitle = "done"; if (it.detail.length() > 0) { subtitle = it.detail + " - done"; } }
       rows.push(ui.ListItem("default", it.label, subtitle, "", "toggleIDX", j, true, icon));
       j = j + 1;
     }
@@ -1000,7 +794,8 @@ function onOpenedIDX(state: AppState, value: string): AppState {
     if (notes.length() > 0) { sections.push(ui.Section("supporting", "", "", notes)); }
   }`,
     [new SlotSpec('__CALENDAR_IDX__', ['false', 'true'], 'noul',
-      'Should each entry be put into the phone calendar with a reminder, with a button to open the calendar?', calendar, 0.6)],
+      'Should each entry be put into the phone calendar with a reminder, with a button to open the calendar?', calendar, 0.6,
+      ['calendar_add', 'calendar_open'])],
     [
       new ContentFieldSpec('__FORM_TITLE_IDX__', 'form_title', 'Add a reminder', 'Heading of the form (2-4 words)', 24),
       new ContentFieldSpec('__TITLE_LABEL_IDX__', 'title_label', 'Name', 'Label of the title field (1-3 words, such as Medicine or Habit)', 20),
@@ -1137,7 +932,7 @@ function resetProgressIDX(state: AppState, ignored: number): AppState {
 }`,
     `{
     sections.push(ui.Section("summary", "", "", [
-      ui.Progress("__PROGRESS_STYLE_IDX__", "__PROGRESS_LABEL_IDX__", state.progressIDX, state.goalIDX)
+      ui.ProgressRing("__PROGRESS_STYLE_IDX__", "__PROGRESS_LABEL_IDX__", state.progressIDX, state.goalIDX, ui.numberToString(state.progressIDX) + " of " + ui.numberToString(state.goalIDX))
     ]));
     sections.push(ui.Section("content", "", "", [
       ui.ActionBar("spread", [
@@ -1187,6 +982,165 @@ function keyFactsFragment(): FragmentSpec {
 }
 
 /**
+ * One to three current figures from the internet that keep themselves up to date, with the source shown. A program cannot reach the
+ * internet; this block's refresh calls the host function "Vera.Live.fetch" (VeraLive.ets), which searches, has a model read the figures
+ * off the results and answers in plain lines:
+ *
+ *   ok / error: <reason>, <value 1>, <value 2>, <value 3>, source<TAB>domain<TAB>address, asof<TAB>HH:MM
+ *
+ * The first figures and their source are written at generation from the search the pipeline already made, and checked against it
+ * (VeraLive.ets checkLiveProvenance): an address or a figure that is not in the results is blanked, never shown as found. A refresh
+ * that fails keeps the figures on screen and says why; the source line always says where the figures are from and when.
+ * A tick every second counts down to the next automatic refresh (one soon after the screen opens, then every interval).
+ */
+function liveFactsFragment(): FragmentSpec {
+  let every: Map<string, string> = new Map<string, string>()
+  every.set('300', 'every five minutes')
+  every.set('60', 'every minute, for fast-moving figures such as a price')
+  every.set('900', 'every quarter of an hour, for slowly changing figures such as the weather')
+  return new FragmentSpec(
+    'live_facts',
+    'One to three figures that change from minute to minute (an exchange rate, a price, the weather right now, a live score) that the screen keeps ' +
+    'refreshing from the internet, shown with their source; only when the request asks for the current value or to keep watching it; ' +
+    'not for a value at a stated time or date, a past or forecast figure, or a fact that does not change',
+    '',
+    [new StateFieldSpec('v1IDX', 'string'), new StateFieldSpec('v2IDX', 'string'), new StateFieldSpec('v3IDX', 'string'),
+     new StateFieldSpec('prev1IDX', 'string'), new StateFieldSpec('srcNameIDX', 'string'), new StateFieldSpec('srcUrlIDX', 'string'),
+     new StateFieldSpec('asOfIDX', 'string'), new StateFieldSpec('noteIDX', 'string'), new StateFieldSpec('busyIDX', 'boolean'),
+     new StateFieldSpec('autoIDX', 'boolean'), new StateFieldSpec('nextInIDX', 'number'), new StateFieldSpec('lastCallIDX', 'number'),
+     new StateFieldSpec('chgIDX', 'string')],
+    // The content tokens are resolved in init statements only, so the figures are read into locals here and the state literal names them.
+    `  let v1IDX: string = "__V1_IDX__";
+  let v2IDX: string = "__V2_IDX__";
+  let v3IDX: string = "__V3_IDX__";
+  let srcNameIDX: string = "__SRC_NAME_IDX__";
+  let srcUrlIDX: string = "__SRC_URL_IDX__";`,
+    `v1IDX: v1IDX, v2IDX: v2IDX, v3IDX: v3IDX, prev1IDX: "", srcNameIDX: srcNameIDX, srcUrlIDX: srcUrlIDX, asOfIDX: "", noteIDX: "", busyIDX: false, autoIDX: true, nextInIDX: 3, lastCallIDX: 0, chgIDX: ""`,
+    `function rebuildLiveIDX(state: AppState, v1: string, v2: string, v3: string, prev1: string, srcName: string, srcUrl: string, asOf: string, note: string, busy: boolean, auto: boolean, nextIn: number, lastCall: number, chg: string): AppState {
+  return {v1IDX: v1, v2IDX: v2, v3IDX: v3, prev1IDX: prev1, srcNameIDX: srcName, srcUrlIDX: srcUrl, asOfIDX: asOf, noteIDX: note, busyIDX: busy, autoIDX: auto, nextInIDX: nextIn, lastCallIDX: lastCall, chgIDX: chg__PASSTHROUGH__};
+}
+
+function startFetchIDX(state: AppState, now: number): AppState {
+  sdk.call("Vera.Live.fetch", ["query", "__QUERY_IDX__", "labels", "__L1_IDX__|__L2_IDX__|__L3_IDX__"], "onLiveIDX");
+  return rebuildLiveIDX(state, state.v1IDX, state.v2IDX, state.v3IDX, state.prev1IDX, state.srcNameIDX, state.srcUrlIDX, state.asOfIDX, "", true, state.autoIDX, __INTERVAL_IDX__, now, state.chgIDX);
+}
+
+function refreshIDX(state: AppState, ignored: number): AppState {
+  let now: number = time.nowSeconds();
+  if (state.busyIDX || now - state.lastCallIDX < 5) { return state; }
+  return startFetchIDX(state, now);
+}
+
+function onTickIDX(state: AppState, elapsedMs: number): AppState {
+  if (!state.autoIDX) { return state; }
+  let left: number = state.nextInIDX - 1;
+  if (left > 0) {
+    return rebuildLiveIDX(state, state.v1IDX, state.v2IDX, state.v3IDX, state.prev1IDX, state.srcNameIDX, state.srcUrlIDX, state.asOfIDX, state.noteIDX, state.busyIDX, state.autoIDX, left, state.lastCallIDX, state.chgIDX);
+  }
+  let now: number = time.nowSeconds();
+  if (state.busyIDX || now - state.lastCallIDX < 5) {
+    return rebuildLiveIDX(state, state.v1IDX, state.v2IDX, state.v3IDX, state.prev1IDX, state.srcNameIDX, state.srcUrlIDX, state.asOfIDX, state.noteIDX, state.busyIDX, state.autoIDX, 5, state.lastCallIDX, state.chgIDX);
+  }
+  return startFetchIDX(state, now);
+}
+
+function toggleAutoIDX(state: AppState, value: boolean): AppState {
+  return rebuildLiveIDX(state, state.v1IDX, state.v2IDX, state.v3IDX, state.prev1IDX, state.srcNameIDX, state.srcUrlIDX, state.asOfIDX, state.noteIDX, state.busyIDX, value, __INTERVAL_IDX__, state.lastCallIDX, state.chgIDX);
+}
+
+function lineAtIDX(lines: string[], at: number, fallback: string): string {
+  if (at < lines.length()) {
+    let t: string = strings.trim(lines[at]);
+    if (t !== "") { return t; }
+  }
+  return fallback;
+}
+
+function onLiveIDX(state: AppState, value: string): AppState {
+  if (!strings.startsWith(value, "ok")) {
+    let why: string = value;
+    if (strings.length(why) > 140) { why = strings.substring(why, 0, 140); }
+    return rebuildLiveIDX(state, state.v1IDX, state.v2IDX, state.v3IDX, state.prev1IDX, state.srcNameIDX, state.srcUrlIDX, state.asOfIDX, why, false, state.autoIDX, __INTERVAL_IDX__, state.lastCallIDX, state.chgIDX);
+  }
+  let lines: string[] = strings.split(value, "\\n");
+  let n1: string = lineAtIDX(lines, 1, state.v1IDX);
+  let n2: string = lineAtIDX(lines, 2, state.v2IDX);
+  let n3: string = lineAtIDX(lines, 3, state.v3IDX);
+  let prev: string = state.prev1IDX;
+  if (n1 !== state.v1IDX) { prev = state.v1IDX; }
+  let chg: string = "same";
+  if (n1 !== state.v1IDX || n2 !== state.v2IDX || n3 !== state.v3IDX) { chg = "changed"; }
+  let srcName: string = state.srcNameIDX;
+  let srcUrl: string = state.srcUrlIDX;
+  let asOf: string = state.asOfIDX;
+  if (lines.length() > 4) {
+    let src: string[] = strings.split(lines[4], "\\t");
+    if (src.length() > 2) { srcName = src[1]; srcUrl = src[2]; }
+  }
+  if (lines.length() > 5) {
+    let when: string[] = strings.split(lines[5], "\\t");
+    if (when.length() > 1) { asOf = when[1]; }
+  }
+  return rebuildLiveIDX(state, n1, n2, n3, prev, srcName, srcUrl, asOf, "", false, state.autoIDX, __INTERVAL_IDX__, state.lastCallIDX, chg);
+}`,
+    `{
+    let l1: string = "__L1_IDX__";
+    let l2: string = "__L2_IDX__";
+    let l3: string = "__L3_IDX__";
+    let shown1: string = state.v1IDX;
+    let shown2: string = state.v2IDX;
+    let shown3: string = state.v3IDX;
+    if (shown1 === "") { shown1 = "-"; }
+    if (shown2 === "") { shown2 = "-"; }
+    if (shown3 === "") { shown3 = "-"; }
+    let was: string = "";
+    if (state.prev1IDX !== "") { was = "was " + state.prev1IDX; }
+    let facts: ui.View[] = [];
+    facts.push(ui.KeyValueItem("default", l1, shown1, was));
+    facts.push(ui.When(l2 !== "", ui.KeyValueItem("default", l2, shown2, "")));
+    facts.push(ui.When(l3 !== "", ui.KeyValueItem("default", l3, shown3, "")));
+    let buttonText: string = "Refresh now";
+    if (state.busyIDX) { buttonText = "Updating..."; }
+    let head: ui.View[] = [];
+    head.push(ui.KeyValueGroup("default", 1, facts));
+    head.push(ui.ActionBar("spread", [ui.Button("primary", buttonText, "refreshIDX", 0, !state.busyIDX)]));
+    head.push(ui.When(state.chgIDX === "same" && !state.busyIDX && state.noteIDX === "", ui.InsetBanner("default", "No change", "The source showed the same figures as at the previous check.", "", "", "info")));
+    sections.push(ui.Section("content", "", "", head));
+    let sourceTitle: string = "Source: not found yet";
+    if (state.srcNameIDX !== "") { sourceTitle = "Source: " + state.srcNameIDX; }
+    if (state.asOfIDX !== "") { sourceTitle = sourceTitle + " \\u00b7 checked " + state.asOfIDX; }
+    sections.push(ui.Section("supporting", "", "", [ui.InsetBanner("default", sourceTitle, state.srcUrlIDX, "", "", "info")]));
+    let controls: ui.View[] = [];
+    controls.push(ui.Toggle("default", "Auto-refresh", state.autoIDX, "toggleAutoIDX"));
+    controls.push(ui.Ticker("default", "liveIDX", 1000, state.autoIDX, "onTickIDX"));
+    controls.push(ui.When(state.autoIDX && !state.busyIDX, ui.InsetBanner("default", "Next update in " + ui.durationToString(state.nextInIDX), "", "", "", "info")));
+    sections.push(ui.Section("content", "", "", controls));
+    sections.push(ui.Section("supporting", "", "", [
+      ui.When(state.noteIDX !== "", ui.InsetBanner("warning", "Could not update", state.noteIDX, "", "", "info"))
+    ]));
+  }`,
+    [new SlotSpec('__INTERVAL_IDX__', ['300', '60', '900'], 'choice',
+      'How often should these figures refresh while the screen is open?', every)],
+    [
+      new ContentFieldSpec('__L1_IDX__', 'label1', 'Value', 'Label of the first figure (1-3 words, such as USD/RUB)', 20),
+      new ContentFieldSpec('__L2_IDX__', 'label2', '', 'Label of a second figure, or an empty string when the request asks for one figure', 20),
+      new ContentFieldSpec('__L3_IDX__', 'label3', '', 'Label of a third figure, or an empty string', 20),
+      new ContentFieldSpec('__V1_IDX__', 'value1', '-', 'The first figure exactly as the search results write it (digits and unit), or "-" when the results do not have it', 24),
+      new ContentFieldSpec('__V2_IDX__', 'value2', '-', 'The second figure exactly as the search results write it, or "-"', 24),
+      new ContentFieldSpec('__V3_IDX__', 'value3', '-', 'The third figure exactly as the search results write it, or "-"', 24),
+      new ContentFieldSpec('__QUERY_IDX__', 'query', '', 'A web search query that finds these figures again later, 3-8 words, such as "USD RUB exchange rate today"', 80),
+      new ContentFieldSpec('__SRC_NAME_IDX__', 'source_name', '', 'Domain of the search result the figures were read from, such as cbr.ru, or an empty string', 40),
+      new ContentFieldSpec('__SRC_URL_IDX__', 'source_url', '', 'Address of that search result, copied exactly from the results, or an empty string', 160)
+    ],
+    ['import * as sdk from "std/sdk"', 'import * as strings from "std/strings"', 'import * as time from "std/time"'],
+    [],
+    [],
+    [],
+    ['needs_integration', 'needs_live_ticking']
+  )
+}
+
+/**
  * A single-series line chart of a handful of real data points, display-only. Min/max are computed
  * from the actual plotted values at render time (a plain while loop over the array), not asked of
  * the content-fill model as a separate field -- VeraPreview.ets's Sparkline renderer never
@@ -1200,16 +1154,18 @@ function trendChartFragment(): FragmentSpec {
   chartStyle.set('accent', 'yes, highlighted')
   return new FragmentSpec(
     'trend_chart',
-    'A simple line chart of a handful of data points trending over a sequence (a measurement by ' +
-    'year, a reading over months) -- not interactive, no taps, no editable inputs',
+    'A simple line chart of ONE series of a handful of data points trending over a sequence (a measurement ' +
+    'by year, a reading over months); it cannot compare several groups -- not interactive, no taps, no editable inputs',
     '',
     [],
     '',
     '',
     '',
     `{
-    let series: number[] = [__V1_IDX__, __V2_IDX__, __V3_IDX__, __V4_IDX__];
-    let categories: string[] = ["__Y1_IDX__", "__Y2_IDX__", "__Y3_IDX__", "__Y4_IDX__"];
+    let series: number[] = [];
+    let categories: string[] = [];
+    __POINTS_IDX__
+    if (series.length() < 1) { series.push(0); categories.push(""); }
     let maxV: number = series[0];
     let minV: number = series[0];
     let i: number = 1;
@@ -1218,22 +1174,27 @@ function trendChartFragment(): FragmentSpec {
       if (series[i] < minV) { minV = series[i]; }
       i = i + 1;
     }
+    let span: number = maxV - minV;
+    if (span < 1) { span = 1; }
+    let top: number = maxV + span / 5;
+    let bottom: number = minV - span / 5;
+    if (bottom < 0) { if (minV > -1) { bottom = 0; } }
     sections.push(ui.Section("content", "", "", [
-      ui.Sparkline("__CHART_STYLE_IDX__", series, maxV, "__CHART_LABEL_IDX__", false, [], "default", "", "", categories, minV)
+      ui.Sparkline("__CHART_STYLE_IDX__", series, top, "__CHART_LABEL_IDX__", false, [], "default", "", "", categories, bottom)
     ]));
   }`,
     [new SlotSpec('__CHART_STYLE_IDX__', ['default', 'accent'], 'choice', 'Should the chart line stand out?', chartStyle)],
     [
-      new ContentFieldSpec('__CHART_LABEL_IDX__', 'chart_label', 'Value', 'Short label for what the chart plots (2-4 words, e.g. "Average height (cm)")', 24),
-      new ContentFieldSpec('__Y1_IDX__', 'point1_label', 'Point 1', 'Short label for data point 1 (e.g. a year, "1950")', 12),
-      new ContentFieldSpec('__V1_IDX__', 'point1_value', '0', 'Numeric value for data point 1, digits only, no units or commas', 15, true),
-      new ContentFieldSpec('__Y2_IDX__', 'point2_label', 'Point 2', 'Short label for data point 2', 12),
-      new ContentFieldSpec('__V2_IDX__', 'point2_value', '0', 'Numeric value for data point 2, digits only, no units or commas', 15, true),
-      new ContentFieldSpec('__Y3_IDX__', 'point3_label', 'Point 3', 'Short label for data point 3', 12),
-      new ContentFieldSpec('__V3_IDX__', 'point3_value', '0', 'Numeric value for data point 3, digits only, no units or commas', 15, true),
-      new ContentFieldSpec('__Y4_IDX__', 'point4_label', 'Point 4', 'Short label for data point 4', 12),
-      new ContentFieldSpec('__V4_IDX__', 'point4_value', '0', 'Numeric value for data point 4, digits only, no units or commas', 15, true)
-    ]
+      new ContentFieldSpec('__CHART_LABEL_IDX__', 'chart_label', 'Value', 'Short label for what the chart plots (2-4 words, e.g. "Average height (cm)")', 24)
+    ],
+    [],
+    [new ListFieldSpec('__POINTS_IDX__', 'points',
+      'The data points of the line, in order along the x axis (2 to 12), each with its label and a number. Take the points the ' +
+      'request names; when it names none, take 6 to 10 evenly spaced ones from the search results\' table (every 10 years, every month). ' +
+      'Never invent a point, never pad with zeros or with derived values such as a change',
+      ['x-axis label (a year or a month, 1-2 words)', 'its value, a plain number, no units'], [12, 12],
+      'categories.push("{0}"); series.push({1});', '\n    ', 2, 12,
+      [['A', '1'], ['B', '2']], [], ['', 'number'])]
   )
 }
 
@@ -1659,10 +1620,16 @@ function balancesIDX(state: AppState): number[] {
     if (plain) {
       let sumText: string = state.currencyIDX + ui.formatNumber(totalSumIDX(state), 2);
       if (state.currencyIDX.length() === 0) { sumText = ui.numberToString(totalSumIDX(state)); }
+      let avgText: string = "-";
+      if (n > 0) {
+        avgText = state.currencyIDX + ui.formatNumber(totalSumIDX(state) / n, 2);
+        if (state.currencyIDX.length() === 0) { avgText = ui.formatNumber(totalSumIDX(state) / n, 2); }
+      }
       sections.push(ui.Section("summary", "", "", [
-        ui.MetricGroup("default", 2, [
-          ui.Stat("accent", "Total", sumText, "all entries", "chart"),
-          ui.Stat("default", "Entries", ui.numberToString(n), "logged", "list")
+        ui.TileGrid("default", [
+          ui.Tile("accent", 2, "Total", sumText, "all entries", "chart"),
+          ui.Tile("default", 1, "Entries", ui.numberToString(n), "logged", "list"),
+          ui.Tile("default", 1, "Average", avgText, "per entry", "chart")
         ])
       ]));
     }
@@ -1693,7 +1660,10 @@ function balancesIDX(state: AppState): number[] {
     ['import * as strings from "std/strings"'],
     [new ListFieldSpec('__LABELS_IDX__', 'labels',
       'The named people or categories a record can be tagged with, taken from the request (2 to 8); exactly one entry when the ' +
-      'records are one plain running list not tied to people or categories',
+      'records are one plain running list not tied to people or categories. When the request has people share or settle costs ' +
+      '(roommates, friends, a team, players), they are the people: the names the request gives, else numbered stand-ins such as ' +
+      'Roommate 1, Roommate 2 -- never the kinds of cost or points that are being shared. When it asks for a breakdown by ' +
+      'category (a budget, exercises, expense types), they are those categories',
       ['name of the person or category (1-2 words)'], [16], '"{0}"', ', ', 1, 8,
       [['Person 1'], ['Person 2'], ['Person 3']])],
     [new PortSpec('writes', 'labels', 'string[]', 'labelsIDX'),
@@ -1979,6 +1949,20 @@ function reachedCountIDX(state: AppState): number {
   return n;
 }
 
+function visibleStopsIDX(state: AppState): number {
+  let limit: number = __PORT_deadline__;
+  if (limit < 0) { return state.stopsIDX.length(); }
+  let at: number = state.startMinIDX;
+  let n: number = 0;
+  let i: number = 0;
+  while (i < state.stopsIDX.length()) {
+    if (at + state.stopsIDX[i].minutes <= limit) { n = n + 1; }
+    at = at + state.stopsIDX[i].minutes + state.gapIDX;
+    i = i + 1;
+  }
+  return n;
+}
+
 function toggleStopIDX(state: AppState, index: number): AppState {
   let out: Stop[] = [];
   let last: number = state.lastIDX;
@@ -2108,32 +2092,41 @@ function onOpenedIDX(state: AppState, value: string): AppState {
     let count: number = state.stopsIDX.length();
     let showNav: boolean = __NAVIGATE_IDX__;
     let showCal: boolean = __CALENDAR_IDX__;
+    let limit: number = __PORT_deadline__;
     let rows: ui.View[] = [];
     let at: number = state.startMinIDX;
+    let shown: number = 0;
     let j: number = 0;
     while (j < count) {
       let s: Stop = state.stopsIDX[j];
-      let icon: string = "pin";
-      if (s.done) { icon = "check"; }
-      let subtitle: string = ui.clockToString(at) + " - " + ui.clockToString(at + s.minutes) + " | " + ui.numberToString(s.minutes) + " min";
-      if (s.latitude !== "" && s.longitude !== "") { subtitle = subtitle + " | " + s.latitude + ", " + s.longitude; }
-      rows.push(ui.ListItem("default", s.name, subtitle, "", "toggleStopIDX", j, true, icon));
-      let buttons: ui.View[] = [];
-      if (showCal) {
-        let calText: string = "Add to calendar";
-        if (s.eventId !== "") { calText = "In calendar"; }
-        buttons.push(ui.Button("secondary", calText, "addEventIDX", j, s.eventId === ""));
+      if (limit < 0 || at + s.minutes <= limit) {
+        let icon: string = "pin";
+        if (s.done) { icon = "check"; }
+        let subtitle: string = ui.clockToString(at) + " - " + ui.clockToString(at + s.minutes) + " | " + ui.numberToString(s.minutes) + " min";
+        rows.push(ui.ListItem("default", s.name, subtitle, "", "toggleStopIDX", j, true, icon));
+        let buttons: ui.View[] = [];
+        if (showCal) {
+          let calText: string = "Add to calendar";
+          if (s.eventId !== "") { calText = "In calendar"; }
+          buttons.push(ui.Button("secondary", calText, "addEventIDX", j, s.eventId === ""));
+        }
+        if (showNav) { buttons.push(ui.Button("primary", "Navigate", "navigateIDX", j, true)); }
+        if (buttons.length() > 0) { rows.push(ui.ActionBar("end", buttons)); }
+        shown = shown + 1;
       }
-      if (showNav) { buttons.push(ui.Button("primary", "Navigate", "navigateIDX", j, true)); }
-      if (buttons.length() > 0) { rows.push(ui.ActionBar("end", buttons)); }
       at = at + s.minutes + state.gapIDX;
       j = j + 1;
     }
+    let emptyText: string = "Nothing is planned yet.";
+    if (limit >= 0 && count > 0) { emptyText = "Nothing fits before " + ui.clockToString(limit) + "."; }
     sections.push(ui.Section("content", "", "", [
-      ui.When(count === 0, ui.EmptyState("default", "No stops", "Nothing is planned yet.", "", "", "pin")),
-      ui.When(count > 0, ui.ListGroup("default", "", rows))
+      ui.When(shown === 0, ui.EmptyState("default", "No stops", emptyText, "", "", "pin")),
+      ui.When(shown > 0, ui.ListGroup("default", "", rows))
     ]));
     let notes: ui.View[] = [];
+    if (limit >= 0 && shown < count) {
+      notes.push(ui.InsetBanner("default", "Left out", ui.numberToString(count - shown) + " more would run past " + ui.clockToString(limit), "", "", "info"));
+    }
     if (state.resultIDX !== "") {
       let tone: string = "default";
       if (failedIDX(state.resultIDX)) { tone = "warning"; }
@@ -2147,8 +2140,10 @@ function onOpenedIDX(state: AppState, value: string): AppState {
     }
     if (notes.length() > 0) { sections.push(ui.Section("supporting", "", "", notes)); }
   }`,
-    [new SlotSpec('__NAVIGATE_IDX__', ['false', 'true'], 'noul', 'Should each stop have a button that opens it in the maps app for directions?', navigate, 0.6),
-     new SlotSpec('__CALENDAR_IDX__', ['false', 'true'], 'noul', 'Should each stop be addable to the phone calendar, with buttons to open the calendar and to remove the events this app added?', calendar, 0.6)],
+    [new SlotSpec('__NAVIGATE_IDX__', ['false', 'true'], 'noul', 'Should each stop have a button that opens it in the maps app for directions?', navigate, 0.6,
+      ['navigate']),
+     new SlotSpec('__CALENDAR_IDX__', ['false', 'true'], 'noul', 'Should each stop be addable to the phone calendar, with buttons to open the calendar and to remove the events this app added?', calendar, 0.6,
+      ['calendar_add', 'calendar_open', 'calendar_clear'])],
     [
       new ContentFieldSpec('__START_TIME_IDX__', 'start_time', '540', 'When the first stop starts, as minutes after midnight (09:00 is 540)', 6, true),
       new ContentFieldSpec('__GAP_IDX__', 'gap_minutes', '15', 'Minutes of travel or slack between two stops (0 to 180)', 4, true),
@@ -2165,7 +2160,9 @@ function onOpenedIDX(state: AppState, value: string): AppState {
       [['Stop 1', '60', '', ''], ['Stop 2', '60', '', ''], ['Stop 3', '60', '', ''], ['Stop 4', '60', '', ''], ['Stop 5', '60', '', '']],
       [1], ['', 'minutes', 'lat', 'lon'])],
     [new PortSpec('writes', 'done', 'number', 'reachedCountIDX(state)', '', true),
-     new PortSpec('writes', 'total', 'number', 'state.stopsIDX.length()', '', true)],
+     new PortSpec('writes', 'total', 'number', 'visibleStopsIDX(state)', '', true),
+     // The time of day by which the stops must be over (a flight to catch); -1: no such time, every stop is shown.
+     new PortSpec('reads', 'deadline', 'number', '__PORT_deadline__', '-1', false, true)],
     [],
     ['needs_logic', 'needs_search_or_form'],
     ['needs_integration=__NAVIGATE_IDX__|__CALENDAR_IDX__']
@@ -2431,7 +2428,7 @@ export function fragments(): FragmentSpec[] {
     barChartFragment(),
     masterListFragment(), detailViewFragment(), listSummaryFragment(), filterBoxFragment(),
     recordLogFragment(), numberStripFragment(), breakdownTableFragment(), seriesChartFragment(), settleUpFragment(),
-    itineraryFragment(), progressLineFragment(), intentPanelFragment(), remindersFragment()
+    itineraryFragment(), progressLineFragment(), intentPanelFragment(), remindersFragment(), liveFactsFragment()
   ]
 }
 
@@ -2446,7 +2443,7 @@ export function fragments(): FragmentSpec[] {
  * calls still matched `list_detail` at 0.95 confidence). These questions are
  * asked once, regardless of which template matched, and clearing its own
  * `above` bar on any one of them vetoes the pick outright -- see readPick in
- * VeraTemplateSelect.ets.
+ * VeraSectionCompose.ets.
  */
 export function vetoes(): VetoSpec[] {
   let yn = (yes: string, no: string): Map<string, string> => {
@@ -2499,6 +2496,12 @@ export function vetoes(): VetoSpec[] {
       'just marked done/not done, present/absent, or on/off is one list, not multiple counters, and ' +
       'does not count -- only answer yes for genuinely separate running numeric tallies.',
       yn('yes', 'no, one adjustable number (plus derived read-only numbers) is enough'), 0.65),
+    new VetoSpec('needs_multiple_series',
+      'Does this request need a chart that compares two or more separate data series on the same ' +
+      'axes -- for example men and women, two cities, this year and last year -- rather than a ' +
+      'single line of values over one sequence (one measurement by year or by month)? One series ' +
+      'with several points is not multiple series; only answer yes when each group needs its own line.',
+      yn('yes', 'no, one line of values over one sequence is enough'), 0.65),
     new VetoSpec('needs_logic',
       'Does this request ask the app to calculate, convert, scale, split, total, compare or decide ' +
       'something from values -- for example amounts for a number of people, a tip split, a unit ' +

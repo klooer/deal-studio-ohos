@@ -124,7 +124,7 @@ compileVeraSource(composeProgram(['reminders', 'reminders'], globals, [values('r
 {
   const body = (slot, vetoes) => {
     const answers = {section1: {choice: 'reminders', confidence: 0.9}, 'section1.reminders.calendar': {noul: slot}}
-    for (const k of ['needs_integration', 'needs_real_data', 'needs_search_or_form', 'needs_live_ticking', 'needs_multiple_counters', 'needs_logic'])
+    for (const k of ['needs_integration', 'needs_real_data', 'needs_search_or_form', 'needs_live_ticking', 'needs_multiple_counters', 'needs_multiple_series', 'needs_logic'])
       answers['veto.' + k] = {noul: vetoes[k] || 0}
     return JSON.stringify({answers})
   }

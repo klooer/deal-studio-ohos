@@ -28,6 +28,7 @@
 
 import http from '@ohos.net.http'
 import hilog from '@ohos.hilog'
+import { noteService, httpFailure, SERVICE_JEV } from './ServiceHealth'
 import { intentDomains } from './VeraIntentCatalog'
 import { registryDomains, registryEntries, RegistryEntry } from './VeraIntentRegistry'
 
@@ -279,8 +280,10 @@ export async function selectTargets(prompt: string, apiKey: string): Promise<Tar
     let code = response.responseCode as number
     if (code !== 200) {
       hilog.warn(DOMAIN, 'VERA', 'VERA-PICK http ' + code.toString())
+      noteService(SERVICE_JEV, false, httpFailure(code, String(response.result)))
       return new TargetChoice([], 'no pick (selector answered ' + code.toString() + ')')
     }
+    noteService(SERVICE_JEV, true)
     let choice = readTargets(response.result as string, entries)
     hilog.info(DOMAIN, 'VERA', 'VERA-PICK ms=' + (Date.now() - started).toString() +
       ' of=' + entries.length.toString() + ' picked=' +
@@ -288,6 +291,7 @@ export async function selectTargets(prompt: string, apiKey: string): Promise<Tar
     return choice
   } catch (e) {
     hilog.warn(DOMAIN, 'VERA', 'VERA-PICK failed: ' + (e as Error).message)
+    noteService(SERVICE_JEV, false, (e as Error).message)
     return new TargetChoice([], 'no pick (selector unreachable)')
   } finally {
     client.destroy()
@@ -332,14 +336,17 @@ export async function selectDomains(prompt: string, apiKey: string): Promise<Sel
     let code = response.responseCode as number
     if (code !== 200) {
       hilog.warn(DOMAIN, 'VERA', 'VERA-SELECT http ' + code.toString())
+      noteService(SERVICE_JEV, false, httpFailure(code, String(response.result)))
       return everything('all intents (selector answered ' + code.toString() + ')')
     }
+    noteService(SERVICE_JEV, true)
     let selection = readSelection(response.result as string, domains)
     hilog.info(DOMAIN, 'VERA', 'VERA-SELECT ms=' + (Date.now() - started).toString() +
       ' domains=' + (selection.domains.length === 0 ? 'all' : selection.domains.join(' ')))
     return selection
   } catch (e) {
     hilog.warn(DOMAIN, 'VERA', 'VERA-SELECT failed: ' + (e as Error).message)
+    noteService(SERVICE_JEV, false, (e as Error).message)
     return everything('all intents (selector unreachable)')
   } finally {
     client.destroy()

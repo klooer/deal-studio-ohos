@@ -48,7 +48,7 @@ def verify_line(wait):
     return None
 
 
-def run_one(prompt, limit, wait, verify=False, fast=False):
+def run_one(prompt, limit, wait, verify=False, fast=False, expand_wait=False):
     hdc('shell', 'hilog -r')
     # A composed result collapses the prompt field into a header row. New brings the field back; when
     # the field is already open this tap lands inside it and does nothing.
@@ -72,6 +72,17 @@ def run_one(prompt, limit, wait, verify=False, fast=False):
     if found is None:
         return None
     note = found[1]
+    if expand_wait and (note.startswith('none') or note.startswith('vetoed')):
+        # the app rewrites the request in parallel and asks Jev again when the first answer picked nothing; wait for
+        # that answer (VERA-EXPAND used=... after the second Jev call, or rewrote=false when there was no rewrite)
+        deadline2 = time.time() + 9
+        while time.time() < deadline2:
+            out = hdc('shell', 'hilog -x | grep -E "VERA-EXPAND (used=|ms=.*rewrote=false)" | tail -1').strip()
+            if out:
+                break
+            time.sleep(0.3)
+        found = sections_line() or found
+        note = found[1]
     second = None
     if verify and note.startswith('none') and re.search(r's\d=(?!none)[a-z_]+@0\.(2[5-9]|[34]\d)', raw_line()):
         # a weak candidate: the app asks DeepSeek for a second opinion before it decides
@@ -104,6 +115,7 @@ if __name__ == '__main__':
     ap.add_argument('--wait', type=int, default=20)
     ap.add_argument('--only', help='comma-separated ids')
     ap.add_argument('--fast', action='store_true', help='stop right after Jev answers instead of letting a composed screen finish')
+    ap.add_argument('--expand', action='store_true', help='wait for the request rewrite and the second Jev answer when the first picked nothing')
     ap.add_argument('--verify', action='store_true', help='wait for the second opinion on weak picks (VERA-VERIFY)')
     args = ap.parse_args()
     rows = json.load(open(args.gold))
@@ -112,7 +124,7 @@ if __name__ == '__main__':
         rows = [r for r in rows if r['id'] in keep]
     results = []
     for r in rows:
-        got = run_one(r['prompt'], args.limit, args.wait, args.verify, args.fast)
+        got = run_one(r['prompt'], args.limit, args.wait, args.verify, args.fast, args.expand)
         res = {'id': r['id'], 'label': r.get('label'), 'ms': got[0] if got else None, 'picked': got[1] if got else 'NO ANSWER', 'raw': got[2] if got else '', 'verify': got[3] if got else None}
         results.append(res)
         print(res['id'], '|', res['label'], '|', res['picked'], '|', res['ms'], flush=True)

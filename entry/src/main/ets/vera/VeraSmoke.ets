@@ -5,17 +5,23 @@
  * stopped with "array length limit reached" at the first medicine added, on the phone, after it was served.
  *
  * What it reports goes back to the model as a repair, so only what is a mistake whatever the person types
- * counts: a trap while starting or drawing, and a handler that runs away. A handler that traps on the
+ * counts: a trap while starting or drawing, a screen with nothing on it, and a handler that runs away. A handler that traps on the
  * made-up value (an index the list does not have) is set aside and the run goes on from the state before it.
  */
 
 import { VirtualMachine, deserializeVbc2, RuntimeValue, RuntimeTrap, VeraNumberValue, VeraStringValue,
   VeraBooleanValue } from './VeraInterpreter'
-import { UiHostEnvironment, decodeVeraUi } from './VeraUi'
+import { UiHostEnvironment, decodeVeraUi, VeraUiNode } from './VeraUi'
 import { CompileResult } from './VeraCompiler'
 
 /** Twice through the handlers: a list's second entry, a toggle switched back. */
 const PASSES: number = 2
+
+function countNodes(node: VeraUiNode): number {
+  let count = 1
+  for (let child of node.children) { count += countNodes(child) }
+  return count
+}
 
 /** What a tap hands a handler: "12" reads as words and as a typed number alike. */
 function plainValue(kind: string): RuntimeValue {
@@ -30,15 +36,23 @@ function runaway(e: Object): boolean {
 
 /**
  * '' when the program runs, else its runtime error as diagnostics ("line:col CODE message"), for the repair
- * prompt to quote the lines from.
+ * prompt to quote the lines from. A program whose view() draws fewer than two nodes is refused as empty, whoever wrote it
+ * (the agent, a written section, the Generate screen's model, the chat's): nothing served is a blank screen. Every caller in the
+ * app asks for that; `requireContent` is false only in the host checks (agent-check, parts-check, merge-check), which run a screen
+ * that has nothing drawn yet to see that it starts and answers every handler.
  */
-export function smokeRun(compiled: CompileResult): string {
+export function smokeRun(compiled: CompileResult, requireContent: boolean = true): string {
   let host = new UiHostEnvironment()
   let vm = new VirtualMachine(deserializeVbc2(compiled.vbc2), host)
   let state: RuntimeValue
   try {
     state = vm.execute('init')
-    decodeVeraUi(vm.execute('view', [state]))
+    let roots = decodeVeraUi(vm.execute('view', [state]))
+    let nodes = 0
+    for (let root of roots) { nodes += countNodes(root) }
+    // Nothing to see is a mistake whatever the person types.
+    if (requireContent && nodes === 0) { return 'The program compiled, but view() drew nothing' }
+    if (requireContent && nodes < 2) { return 'The program compiled, but view() drew an empty screen' }
   } catch (e) {
     return diagnostic(e as Error, 'when the program starts')
   }

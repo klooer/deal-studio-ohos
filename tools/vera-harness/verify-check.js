@@ -12,7 +12,7 @@ function body(sections, vetoes = {}, extra = {}) {
   const answers = {}
   sections.forEach(([k, c], i) => { answers['section' + (i + 1)] = {choice: k, confidence: c} })
   for (let i = sections.length; i < 6; i++) answers['section' + (i + 1)] = {choice: 'none', confidence: 0.6}
-  const keys = ['needs_integration', 'needs_real_data', 'needs_search_or_form', 'needs_live_ticking', 'needs_multiple_counters', 'needs_logic']
+  const keys = ['needs_integration', 'needs_real_data', 'needs_search_or_form', 'needs_live_ticking', 'needs_multiple_counters', 'needs_multiple_series', 'needs_logic']
   keys.forEach(k => { answers['veto.' + k] = {noul: vetoes[k] === undefined ? 0 : vetoes[k]} })
   Object.assign(answers, extra)
   return JSON.stringify({answers})

@@ -423,6 +423,35 @@ const pick = choice => ({type: 'choice', choice, confidence: 0.95})
     other: ['a progress bar toward the goal', 'a slider for the steps', 'a weekly history chart']}))
   const parts = Object.keys(JSON.parse(c.buildComposeRequest('steps vs goal', sketch)).questions['covers.0'].criteria)
   assert.ok(parts.includes('bar.progress') && parts.includes('widget.steps.slider') && parts.includes('value.progress'), parts.join(' '))
+  // Whether an item of "other" is the person's is asked with the plan's own questions to the person in view.
+  {
+    const asked = JSON.parse(c.buildComposeRequest('steps vs goal', sketch)).questions['asked.other.2'].instructions
+    assert.doesNotMatch(asked, /plan also asked/)
+    const withQuestion = c.parseSketch(JSON.stringify({title: 'T', other: ['a weekly history chart'],
+      questions: [{id: 'q', ask: 'How should history be shown?', options: ['a chart', 'a list']}]}))
+    assert.match(JSON.parse(c.buildComposeRequest('x', withQuestion)).questions['asked.other.0'].instructions,
+      /plan also asked the person: "How should history be shown\?" \(a chart \/ a list\)/)
+  }
+  {
+    const withQ = c.parseSketch(JSON.stringify({title: 'T', inputs: [{id: 'n', label: 'N', kind: 'count', min: 0, max: 9, value: 1}],
+      values: [{id: 'v', label: 'V', means: 'm', format: 'number', formula: 'n', example: {given: {n: 1}, result: 1}}],
+      questions: [{id: 'q', ask: 'How should it be shown?', options: ['a', 'b']}]}))
+    const qs = JSON.parse(c.buildComposeRequest('x', withQ)).questions
+    assert.match(qs['asked.n'].instructions, /plan also asked the person/)
+    assert.match(qs['asked.value.v'].instructions, /plan also asked the person/)
+  }
+  // An action a chosen section does itself is not also kept as a part: the same button would be on the screen twice.
+  {
+    const comp = {events: [{id: 'a', what: 'opens the calendar'}, {id: 'b', what: 'vibrates'}], effects: new Map([['a', 'calendar_open'], ['b', 'vibrate']]),
+      args: new Map([['a', new Map()], ['b', new Map()]]), moments: new Map([['a', 'button'], ['b', 'button']]), dropped: [],
+      customEffects: new Map(), custom: [], phoneNeeds: [], unboundNeeds: []}
+    assert.deepEqual(c.dropProvided(comp, ['calendar_add', 'calendar_open']), ['opens the calendar'])
+    assert.deepEqual(comp.events.map(e => e.id), ['b'])
+    assert.ok(!comp.effects.has('a') && comp.effects.has('b') && !comp.moments.has('a') && !comp.args.has('a'))
+    assert.deepEqual(c.dropProvided(comp, []), [])
+    const spec = loadVera('VeraTemplates').fragments().find(f => f.kind === 'itinerary')
+    assert.deepEqual(spec.slots.find(x => x.token === '__CALENDAR_IDX__').provides, ['calendar_add', 'calendar_open', 'calendar_clear'])
+  }
   const base = {'written.progress': pick('right'), 'show.progress': pick('stat'),
     'widget.steps': pick('typed_number'), 'covers.0': pick('bar.progress'), 'covers.1': pick('widget.steps.slider'), 'covers.2': pick('none')}
   const read = extra => c.readComposition(JSON.stringify({answers: {...base, ...extra}}), sketch)
@@ -609,7 +638,8 @@ const pick = choice => ({type: 'choice', choice, confidence: 0.95})
   const comp = c.readComposition(answers, sketch)
   c.setCustomSectionsEnabled(false)
   assert.deepEqual(comp.unbound, [])
-  assert.deepEqual(comp.custom, ['the figure "Total": the sum of the dice rolled'])
+  // The plan's own formula and worked example go with the need, for the one who writes it.
+  assert.deepEqual(comp.custom, ['the figure "Total": the sum of the dice rolled (the plan works it out as dice * 3.5; for dice = 2 that is 7)'])
   assert.deepEqual(comp.inputs.map(i => i.id), ['dice'])
   assert.equal(comp.sketch.values.length, 0)
 }

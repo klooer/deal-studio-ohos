@@ -53,7 +53,7 @@ export const DASHSCOPE_BASE_URL: string = 'https://dashscope.aliyuncs.com/compat
 const MODEL_CANDIDATE_MODELS: string[] = ['glm-5.2', 'deepseek-v4-flash-0731', 'deepseek-v4.1-flash-1017']
 const MODEL_CANDIDATE_LABELS: string[] = ['glm-5.2', 'ds-v4-flash', 'ds-v4.1-flash']
 
-function readText(path: string): string {
+export function readText(path: string): string {
   try {
     let stat = fs.statSync(path)
     if (stat.size === 0) { return '' }
@@ -63,7 +63,7 @@ function readText(path: string): string {
   }
 }
 
-function writeText(path: string, content: string): void {
+export function writeText(path: string, content: string): void {
   let file: fs.File | null = null
   let failed = false
   try {
@@ -125,6 +125,9 @@ export class SettingsStore {
   }
 
   isReady(): boolean { return this.root.length > 0 }
+
+  /** The app's own folder for what it keeps ({filesDir}/vera); '' before init. */
+  dir(): string { return this.root }
 
   private path(): string { return this.root + '/settings.json' }
 

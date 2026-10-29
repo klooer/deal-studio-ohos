@@ -58,5 +58,12 @@ deepseek.extractTemplateContent = async () => reply
   const empty = await fillSectionsContent(['search_list', 'data_table', 'timeline', 'checklist'], 'x', 'deepseek')
   assert.match(empty.note, /no response/)
   compileVeraSource(composeProgram(['search_list', 'data_table', 'timeline', 'checklist'], globals, withSlots(['search_list', 'data_table', 'timeline', 'checklist'], empty.instanceValues)))
-  console.log('template-content-check: ok')
+  // record_log's labels are people when the request has people settle costs, and categories when it asks for a breakdown: the
+// hint says both ways (a "roommates split groceries and rent" screen once got groceries and rent as the people).
+{
+  const hint = loadVera('VeraTemplates').fragments().find(f => f.kind === 'record_log').listFields.find(l => l.key === 'labels').hint
+  assert.match(hint, /people share or settle costs/); assert.match(hint, /Roommate 1/); assert.match(hint, /never the kinds of cost/)
+  assert.match(hint, /breakdown by\s+category/)
+}
+console.log('template-content-check: ok')
 })().catch(e => { console.error(e.diagnostics ? e.diagnostics.map(d => d.message).join('\n') : e); process.exit(1) })
