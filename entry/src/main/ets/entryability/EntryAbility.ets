@@ -8,6 +8,7 @@ import hilog from '@ohos.hilog'
 import { refreshForms } from '../vera/FormUpdater'
 import { store } from '../vera/ProjectStore'
 import { settings } from '../vera/SettingsStore'
+import { resetLogprobsProbe } from '../vera/JevProxy'
 import { requestCalendarPermissions, requestMicrophonePermission } from '../vera/VeraPermissions'
 import { runProbe } from '../vera/IntentProbe'
 import { runSdkProbe, requestSdkSearch } from '../vera/VeraSdkProbe'
@@ -187,6 +188,9 @@ export default class EntryAbility extends UIAbility {
     if (text.length === 0) { return }
     settings.init(this.context.filesDir)
     settings.setModel(text)
+    // A model changed via launch param: drop any cached logprobs rejection so the
+    // proxy re-probes under the new model (support is per model, not per provider).
+    resetLogprobsProbe()
     hilog.info(DOMAIN, 'VERA', 'API model updated from launch parameter')
   }
 

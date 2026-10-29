@@ -13,6 +13,7 @@ import { logMark, logStep, initTrace, trace, traceCompile } from '../vera/VeraTi
 import { deepseek, DEEPSEEK_GENERATION_MAX_TOKENS, SideCall } from '../vera/DeepSeekEngine'
 import { VeraPreview } from '../components/VeraPreview'
 import { settings } from '../vera/SettingsStore'
+import { resetLogprobsProbe } from '../vera/JevProxy'
 import { consent } from '../vera/VeraConsentStore'
 import { describeCatalogForPrompt } from '../vera/VeraUiCatalog'
 import { ensureUiEmbeddings } from '../vera/VeraUiIndex'
@@ -2159,6 +2160,11 @@ struct GeneratePage {
                 .enabled(!this.generating)
                 .onClick(() => {
                   settings.applyModelCandidate(index)
+                  // Whether the proxy can use logprobs is per model (glm-5.2
+                  // supports them on dashscope, deepseek-v4-flash does not), so a
+                  // model switch drops any cached rejection and lets the next
+                  // proxy call re-probe under the new model.
+                  resetLogprobsProbe()
                   this.selectedModel = settings.getModel()
                   this.checkDeepSeek()
                 })

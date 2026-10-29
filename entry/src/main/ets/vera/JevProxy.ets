@@ -215,10 +215,24 @@ function buildMessages(state: string, userText: string): Record<string, Object>[
  * deepseek-v4-flash answers 400 "The parameters `logprobs` is not supported". Once
  * seen, subsequent calls omit logprobs and rely on the argmax-on-text fallback.
  * Not reset per call: the provider does not change within a session, and re-probing
- * every call would only re-earn the 400. Restart the app after switching to a
- * provider whose models do support logprobs, so they are tried again.
+ * every call would only re-earn the 400. It IS reset when the model changes
+ * (resetLogprobsProbe, called from the model picker and the apiModel launch param),
+ * because whether logprobs is supported is per model, not per provider: glm-5.2 on
+ * the same dashscope endpoint returns logprobs fine, so switching to it should
+ * re-probe rather than inherit the rejection a deepseek model earned.
  */
 let logprobsRejected: boolean = false
+
+/**
+ * Drop the cached logprobs-rejection so the next proxy call probes logprobs again.
+ * Call this whenever the model changes: support is per model (glm-5.2 supports
+ * logprobs on dashscope, deepseek-v4-flash does not), so a rejection earned under
+ * one model must not suppress logprobs under another.
+ */
+export function resetLogprobsProbe(): void {
+  logprobsRejected = false
+  console.info('VERA-JEVPROXY logprobs probe reset (model changed)')
+}
 
 class CloudReply {
   status: number = 0
@@ -433,6 +447,7 @@ export async function askJevViaCloud(body: string): Promise<string> {
     results.push(await answerQuestion(key, q, state, base, model, cloudKey))
   }
   let answers: Record<string, Object> = {}
+  let calibrated = 0
   for (let ans of results) {
     let entry: Record<string, Object> = {}
     if (ans.isNoul) {
@@ -440,9 +455,15 @@ export async function askJevViaCloud(body: string): Promise<string> {
     } else {
       entry['choice'] = ans.choice
       entry['confidence'] = ans.confidence
+      // A confidence other than exactly 1.0 could only come from logprobs (the
+      // argmax fallback sets 1.0), so counting these shows whether the provider's
+      // logprobs actually flowed this batch -- the diagnostic for the reset/re-probe.
+      if (ans.confidence !== 1.0) { calibrated++ }
     }
     answers[ans.key] = entry
   }
+  console.info('VERA-JEVPROXY batch model=' + model + ' questions=' + results.length.toString() +
+    ' calibrated=' + calibrated.toString())
   noteService(SERVICE_JEV, true)
   let wrapper: Record<string, Object> = {}
   wrapper['answers'] = answers
