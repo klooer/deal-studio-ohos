@@ -30,7 +30,8 @@ vera_kit_roots() {
   printf '%s\n' \
     "$HOME/work/arkts_agent_kit" \
     "$HOME/arkts_agent_kit" \
-    "$HOME/ArkTS_Agent_Kit"
+    "$HOME/ArkTS_Agent_Kit" \
+    "$HOME/tools/arkts-kit"
 }
 
 # vera_kit_bin <executable>  ->  prints an absolute path, or fails with a note
@@ -67,7 +68,7 @@ vera_hdc_dir() {
     echo "ERROR: HDC_DIR is set to $HDC_DIR but there is no hdc in it." >&2
     return 1
   fi
-  for d in "$HOME/Desktop/hdc" "$HOME/hdc"; do
+  for d in "$HOME/Desktop/hdc" "$HOME/hdc" "$HOME/tools/26.0.0/toolchains"; do
     [ -x "$d/hdc" ] && { printf '%s\n' "$d"; return 0; }
   done
   if command -v hdc >/dev/null 2>&1; then
@@ -86,7 +87,7 @@ vera_hapsigner() {
     echo "ERROR: HAPSIGNER is set to $HAPSIGNER but it has no dist/." >&2
     return 1
   fi
-  for d in "$HOME/agent-kit-sdk/hapsigner" "$HOME/hapsigner"; do
+  for d in "$HOME/agent-kit-sdk/hapsigner" "$HOME/hapsigner" "$HOME/tools/hapsigner"; do
     [ -d "$d/dist" ] && { printf '%s\n' "$d"; return 0; }
   done
   echo "ERROR: cannot find hapsigner. Set HAPSIGNER to the directory holding dist/." >&2
