@@ -1,0 +1,183 @@
+entry/src/main/ets/pages/GeneratePage.ets
+  s_3dc4d43033fcf1::t_02466e9091aa7e 2208
+  s_3dc4d43033fcf1::t_6569e45cf1fdba 433-434,948-954,1269
+.gitignore
+  s_3dc4d43033fcf1::t_175cf6ead89075 35
+CLAUDE.md
+  s_3dc4d43033fcf1::t_cf58f132912ae7 39-45,213
+entry/oh-package-lock.json5
+  s_3dc4d43033fcf1::t_3f17ffa9e5c7ea 9,19-24
+entry/oh-package.json5
+  s_3dc4d43033fcf1::t_bd813aa09d7f73 10
+entry/src/main/cpp/CMakeLists.txt
+  s_3dc4d43033fcf1::t_8d1a83b26e8e7f 108-150
+entry/src/main/cpp/napi_phys.cpp
+  s_3dc4d43033fcf1::t_5617f97e36aeae 1-286
+entry/src/main/cpp/phys_stepper.h
+  s_3dc4d43033fcf1::t_e095aaf57346c7 1-97
+entry/src/main/cpp/phys_world.h
+  s_3dc4d43033fcf1::t_94870c9c89d6c1 1-756
+entry/src/main/cpp/types/libphys/index.d.ts
+  s_3dc4d43033fcf1::t_4d329b5fbf3f6b 1-88
+entry/src/main/cpp/types/libphys/oh-package.json5
+  s_3dc4d43033fcf1::t_ed00627a3846ca 1-5
+entry/src/main/ets/components/LaunchTrust.ets
+  s_3dc4d43033fcf1::t_218de02fcef586 31
+entry/src/main/ets/components/VeraPreview.ets
+  s_3dc4d43033fcf1::t_5f89bf58a7b283 14,31-32,36-39,154-176,456-473,559-569,589-590,615,853-854,856,860,864-866,1004-1008,1021-1025,1083,1150,1167,1172-1312,1384-1385,1427-1440,1456,1604,1696-1993,2082-2115,2183-2187,2221-2225,2236,2238,2243-2245,2247-2254,2261-2266,2547-2600,2612,3688-3689,3691-3698,5323-5372
+entry/src/main/ets/components/VeraWorld3D.ets
+  s_3dc4d43033fcf1::t_a4cf39ad4d3668 1-1769
+entry/src/main/ets/entryability/EntryAbility.ets
+  s_3dc4d43033fcf1::t_759ee941bfe51e 26,125,287-301
+entry/src/main/ets/vera/Asks3D.ets
+  s_3dc4d43033fcf1::t_cb40c5e5029c3b 1-14
+entry/src/main/ets/vera/VeraBudget.ets
+  s_3dc4d43033fcf1::t_b320983b53ea8b 1-108
+entry/src/main/ets/vera/VeraCompiler.ets
+  s_3dc4d43033fcf1::t_21d8a132941521 7,1428-1473,1478,1608,1968-1970,1981-2000,2021,2135,2204-2205,2207-2231,2233-2235,2240-2242,2250-2252,2460-2468,3047,3055-3091,3102
+entry/src/main/ets/vera/VeraGfx.ets
+  s_3dc4d43033fcf1::t_9a06b0ff5a6b7b 39
+entry/src/main/ets/vera/VeraLocomotion.ets
+  s_3dc4d43033fcf1::t_f9b0449cf7b32b 1-262
+entry/src/main/ets/vera/VeraLook3D.ets
+  s_3dc4d43033fcf1::t_a7a0db2d26c760 1-768
+entry/src/main/ets/vera/VeraMotion.ets
+  s_3dc4d43033fcf1::t_ccda075c548315 225,230,279,300,329-330
+entry/src/main/ets/vera/VeraPhysics.ets
+  s_3dc4d43033fcf1::t_6f030450655982 1-1467
+entry/src/main/ets/vera/VeraScene.ets
+  s_3dc4d43033fcf1::t_944e6f89ab8ef8 1-1518
+entry/src/main/ets/vera/VeraShapes.ets
+  s_3dc4d43033fcf1::t_e06145f8fec99d 1-504
+entry/src/main/ets/vera/VeraSmoke.ets
+  s_3dc4d43033fcf1::t_08ee66046857f8 17,33-34,39-42,45
+entry/src/main/ets/vera/VeraSurfacePlay.ets
+  s_3dc4d43033fcf1::t_883f2a6206d281 9-10,17,103-104,106-107,109-110,142-143,158,162,166-167,202
+entry/src/main/ets/vera/VeraSurfaces.ets
+  s_3dc4d43033fcf1::t_06227e7d496375 1-267
+entry/src/main/ets/vera/VeraUi.ets
+  s_3dc4d43033fcf1::t_6d14a7f966caed 15,479,490,499-501,620-627
+entry/src/main/ets/vera/VeraUiCatalog.ets
+  s_3dc4d43033fcf1::t_398d1aeca64c04 16,151,154-155,246,255,257,264-296,643,800,802,860-863
+entry/src/main/ets/vera/VeraWorldPlay.ets
+  s_3dc4d43033fcf1::t_fe34c736064c84 1-832
+entry/src/main/ets/vera/agent/AgentCustom.ets
+  s_3dc4d43033fcf1::t_efd435e894dd50 20,383-394,501-502
+entry/src/main/ets/vera/agent/AgentHost.ets
+  s_3dc4d43033fcf1::t_2ad67e2f4abee2 78-79
+entry/src/main/ets/vera/agent/AgentSurface.ets
+  s_3dc4d43033fcf1::t_9951f75fa7bace 9-12,20,22-24,39,47,59-61,64-65,67,69-77,79-112,123-126,130-131,136-137,153-160,171-173,183-187,223-237,266-269,272-275,286-295,309,314,330
+entry/src/main/ets/vera/agent/AgentSurfaceEdit.ets
+  s_3dc4d43033fcf1::t_14db9ec25e9cec 8-9,14,24,26-31,56-73,92-93,113-116,120-122
+entry/src/main/resources/rawfile/vera-surface-skill.txt
+  s_3dc4d43033fcf1::t_ebb1f5556a3289 7-9,15,20-23,25,31,33-37,42-43,55-57,60-61,63-67,78-79,82,86-87,91,94-96,101-103,108-109,112-113,118-123,125-134,136,138-139,141-148,150,154-159,162-169,171-184,186,188,191-196,198,203-207,209-210,215
+entry/src/main/resources/rawfile/vera-world-skill.txt
+  s_3dc4d43033fcf1::t_e8bec168b45900 1-326
+tools/phys-stepper-test.cpp
+  s_3dc4d43033fcf1::t_e5c735fa7f60f9 1-103
+tools/phys-world-test.cpp
+  s_3dc4d43033fcf1::t_f458b486f894cb 1-1006
+tools/phys-world-test/CMakeLists.txt
+  s_3dc4d43033fcf1::t_c815f5e98b6c63 1-18
+tools/vera-harness/agent-run.js
+  s_3dc4d43033fcf1::t_1621393c08776a 25-26,96,133
+tools/vera-harness/examples/legacy-stage-die.vbc2
+  s_3dc4d43033fcf1::t_2587f9beaf1ecb 1
+tools/vera-harness/examples/legacy-stage-die.vera
+  s_3dc4d43033fcf1::t_8c1d7b69c603ee 1-45
+tools/vera-harness/examples/surface-basics.vera
+  s_3dc4d43033fcf1::t_a8c94f267b2baa 1-135
+tools/vera-harness/examples/surface-roulette.vera
+  s_3dc4d43033fcf1::t_5e753e0a3f6130 276-282,284-285,288,295-298
+tools/vera-harness/examples/world-basics.vera
+  s_3dc4d43033fcf1::t_e3004715b2ae30 1-98
+tools/vera-harness/examples/world-cubes.vera
+  s_3dc4d43033fcf1::t_b8d8d6f63d645d 1-72
+tools/vera-harness/examples/world-dice.vera
+  s_3dc4d43033fcf1::t_876b18522f2e6d 1-71
+tools/vera-harness/examples/world-solar.vera
+  s_3dc4d43033fcf1::t_edaa59c8bdc8db 1-82
+tools/vera-harness/examples/world-walk.vera
+  s_3dc4d43033fcf1::t_ea87c425a0f806 1-88
+tools/vera-harness/locomotion-check.js
+  s_3dc4d43033fcf1::t_7e975c8e33c62b 1-495
+tools/vera-harness/motion-check.js
+  s_3dc4d43033fcf1::t_2933c0791a935d 104,133-135,137-138,141,143,145,150-153,157,161-163
+tools/vera-harness/scene-check.js
+  s_3dc4d43033fcf1::t_ebdd8948ba784a 1,41
+tools/vera-harness/shapes-check.js
+  s_3dc4d43033fcf1::t_802dc278bfcb3b 1-153
+tools/vera-harness/stage-legacy-check.js
+  s_3dc4d43033fcf1::t_bd50e499f898af 1-70
+tools/vera-harness/surface-edit-check.js
+  s_3dc4d43033fcf1::t_0ff5708c5b1e5e 15-16,23,83-103
+tools/vera-harness/surface-route-check.js
+  s_3dc4d43033fcf1::t_cffa74d37400db 18-21,27-46,55-59,67-75,77-86,97-108,110,122,127,201-252
+tools/vera-harness/visual-check.js
+  s_3dc4d43033fcf1::t_591f1c176b1971 146,187,374,554,1838,1952,1955
+tools/vera-harness/world-check.js
+  s_3dc4d43033fcf1::t_315f091af3ca8d 1-1278
+tools/vera-harness/world-play-check.js
+  s_3dc4d43033fcf1::t_3e56c98ae88972 1-247
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "5.30.1",
+  "base_commit_sha": "d6d9797e5676f5e5a6cae800997f0dc1664047f8",
+  "prompts": {},
+  "humans": {
+    "h_a03eed9a33d93b": {
+      "author": "Yuqiang Xian <xianyuqiang@huawei.com>"
+    }
+  },
+  "sessions": {
+    "s_3dc4d43033fcf1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "27d66f03-bad8-410c-b34e-7c3feb097f81",
+        "model": "deepseek-v4.1-flash-1017"
+      },
+      "human_author": "Yuqiang Xian <xianyuqiang@huawei.com>",
+      "total_additions": 1,
+      "total_deletions": 4,
+      "overridden_lines": 0,
+      "turn_models": {
+        "t_02466e9091aa7e": "deepseek-v4.1-flash-1017",
+        "t_0d48051f246a6a": "deepseek-v4.1-flash-1017",
+        "t_10bf6dbe232823": "deepseek-v4.1-flash-1017",
+        "t_16106079d42c3a": "deepseek-v4.1-flash-1017",
+        "t_181d256fe99887": "deepseek-v4.1-flash-1017",
+        "t_399407388dd15f": "deepseek-v4.1-flash-1017",
+        "t_41911ad88dcb50": "deepseek-v4.1-flash-1017",
+        "t_4c4b3f1105b308": "deepseek-v4.1-flash-1017",
+        "t_61a2e7a9011c84": "deepseek-v4.1-flash-1017",
+        "t_717c49e41f5fe4": "deepseek-v4.1-flash-1017",
+        "t_766dea924b8b4f": "deepseek-v4.1-flash-1017",
+        "t_7adf3f32e753eb": "deepseek-v4.1-flash-1017",
+        "t_93290374ea7ef2": "deepseek-v4.1-flash-1017",
+        "t_96f7b0fa0f768f": "deepseek-v4.1-flash-1017",
+        "t_9afaebacf1da66": "deepseek-v4.1-flash-1017",
+        "t_9cff1f9cd82e2e": "deepseek-v4.1-flash-1017",
+        "t_9e5344aab84446": "deepseek-v4.1-flash-1017",
+        "t_9e5799eb3b3ec8": "deepseek-v4.1-flash-1017",
+        "t_9f5cb699f0b0da": "deepseek-v4.1-flash-1017",
+        "t_ac7e140ff58dcd": "deepseek-v4.1-flash-1017",
+        "t_c26a552b86be67": "deepseek-v4.1-flash-1017",
+        "t_c626d65c128350": "deepseek-v4.1-flash-1017",
+        "t_c7f0e0e3da264b": "deepseek-v4.1-flash-1017",
+        "t_c8b16392d9d633": "deepseek-v4.1-flash-1017",
+        "t_e15289a9d843dd": "deepseek-v4.1-flash-1017",
+        "t_e484ec10a68af5": "deepseek-v4.1-flash-1017",
+        "t_e60e620ad1f6ef": "deepseek-v4.1-flash-1017",
+        "t_e8178982a16412": "deepseek-v4.1-flash-1017",
+        "t_ef463dd9d8ba0b": "deepseek-v4.1-flash-1017"
+      },
+      "model_totals": {
+        "deepseek-v4.1-flash-1017": {
+          "additions": 138,
+          "deletions": 49
+        }
+      }
+    }
+  }
+}
