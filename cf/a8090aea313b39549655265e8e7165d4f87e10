@@ -1,0 +1,35 @@
+entry/src/main/ets/vera/DeepSeekEngine.ets
+  s_3dc4d43033fcf1::t_a5c9d63ab53b6f 46,327-331
+entry/src/main/ets/vera/VeraIntentCatalog.ets
+  s_3dc4d43033fcf1::t_1a63b3f81d07ee 398-419
+entry/src/main/ets/vera/VeraIntents.ets
+  s_3dc4d43033fcf1::t_053eaa27d60ab5 20,70-71
+entry/src/main/ets/vera/VeraRuntimePolicy.ets
+  s_3dc4d43033fcf1::t_eb97dd0700df72 21-22,199-203,205-206
+tools/vera-harness/runtime-policy-check.js
+  s_3dc4d43033fcf1::t_c43d928e75a61d 57-64,138-140
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "5.30.1",
+  "base_commit_sha": "cfa8090aea313b39549655265e8e7165d4f87e10",
+  "prompts": {},
+  "humans": {
+    "h_a03eed9a33d93b": {
+      "author": "Yuqiang Xian <xianyuqiang@huawei.com>"
+    }
+  },
+  "sessions": {
+    "s_3dc4d43033fcf1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "27d66f03-bad8-410c-b34e-7c3feb097f81",
+        "model": "unknown"
+      },
+      "human_author": "Yuqiang Xian <xianyuqiang@huawei.com>",
+      "total_additions": 0,
+      "total_deletions": 0,
+      "overridden_lines": 0
+    }
+  }
+}
