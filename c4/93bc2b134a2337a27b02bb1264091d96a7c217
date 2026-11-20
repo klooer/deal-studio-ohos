@@ -1,0 +1,12 @@
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "5.30.1",
+  "base_commit_sha": "c493bc2b134a2337a27b02bb1264091d96a7c217",
+  "prompts": {},
+  "humans": {
+    "h_a03eed9a33d93b": {
+      "author": "Yuqiang Xian <xianyuqiang@huawei.com>"
+    }
+  }
+}
