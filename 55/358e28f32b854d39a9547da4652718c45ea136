@@ -1,0 +1,195 @@
+native/local-jev/src/npu.rs
+  s_3dc4d43033fcf1::t_79f4dfcbeff211 1-203
+tools/vera-harness/local-decision-route-check.js
+  s_3dc4d43033fcf1::t_70b32767c22008 1-109
+entry/src/main/ets/vera/VeraLocalDecision.ets
+  s_3dc4d43033fcf1::t_2f53d35c7e15c1 1-233
+entry/src/main/cpp/hiai/c/hiai_model_builder.h
+  s_3dc4d43033fcf1::t_ea0d99f2647afb 1-34
+entry/src/main/cpp/hiai/interface/attr_list_def.h
+  s_3dc4d43033fcf1::t_6d0e279eae641b 1-55
+entry/src/main/cpp/hiai/interface/tensor_desc_def.h
+  s_3dc4d43033fcf1::t_00fc5ba9ccdec1 1-64
+entry/src/main/ets/vera/VeraCompose.ets
+  s_3dc4d43033fcf1::t_a557f26e6c71ba 32-33,4753-4831,4833-4839
+docs/local-jev/cpu-vs-cloud.md
+  s_3dc4d43033fcf1::t_18c483c9aef01b 1-101
+entry/src/main/ets/vera/FairProxySpike.ets
+  s_3dc4d43033fcf1::t_e04ad81a66d4b0 1-79
+entry/src/main/cpp/hiai/interface/named_attr_def.h
+  s_3dc4d43033fcf1::t_c13b83575e4720 1-42
+entry/src/main/cpp/hiai/c/hiai_c_api_export.h
+  s_3dc4d43033fcf1::t_0ba135a6ad4b26 1-29
+entry/src/main/cpp/hiai/LICENSE
+  s_3dc4d43033fcf1::t_6e11e9acf36340 1-201
+entry/src/main/ets/vera/ProxySpike.ets
+  s_3dc4d43033fcf1::t_27bfdd30fdf7d2 1-31
+tools/local-jev/eval/prefix-parity.py
+  s_3dc4d43033fcf1::t_038c41ec08891c 1-78
+native/local-jev/Cargo.lock
+  s_3dc4d43033fcf1::t_02d28fe1226f81 663
+entry/src/main/cpp/types/liblocaljev/index.d.ts
+  s_3dc4d43033fcf1::t_3d4bd96cdf4d06 1,4-8
+docs/local-jev/build.md
+  s_3dc4d43033fcf1::t_56a7aaa89444f0 1-139
+tools/local-jev/eval/build-bodies.js
+  s_3dc4d43033fcf1::t_ba3766913a888a 1-41
+entry/src/main/cpp/hiai/c/hiai_nd_tensor_desc.h
+  s_3dc4d43033fcf1::t_13bc0fbd176148 1-50
+entry/src/main/cpp/hiai/interface/tensor_def.h
+  s_3dc4d43033fcf1::t_3f82e08b568282 1-40
+entry/src/main/cpp/hiai/c/hiai_model_manager.h
+  s_3dc4d43033fcf1::t_964c9fa86b2008 1-57
+native/local-jev/include/local_jev.h
+  s_3dc4d43033fcf1::t_976e4bb964c005 16-18
+entry/src/main/cpp/hiai/c/hiai_native_handle.h
+  s_3dc4d43033fcf1::t_e79aa058cc3770 1-39
+native/local-jev/src/laya_backbone.rs
+  s_3dc4d43033fcf1::t_50edf04136a070 109-124,195-212,230-251,256-258,264,337-359,371-373,377,422-463,556-570,575-610,612-666,672-677
+native/local-jev/src/lib.rs
+  s_3dc4d43033fcf1::t_e45b3f51ff6422 4,426-451,485-495
+entry/src/main/cpp/hiai/c/hiai_nd_tensor_buffer.h
+  s_3dc4d43033fcf1::t_d06e5bccc860b7 1-56
+entry/src/main/ets/vera/VeraLocalNapi.ets
+  s_3dc4d43033fcf1::t_e9f8c6942d1115 1-82
+tools/local-jev/eval/README.md
+  s_3dc4d43033fcf1::t_1d5534778f28d9 1-69
+tools/local-jev/eval/laya-calibrate.py
+  s_3dc4d43033fcf1::t_77ca6e2ec7e642 1-169
+entry/src/main/cpp/hiai/interface/model_def.h
+  s_3dc4d43033fcf1::t_e6c0d626116bad 1-49
+entry/src/main/ets/vera/NpuSpike.ets
+  s_3dc4d43033fcf1::t_ef5c82ba6cbf21 1-92
+tools/local-jev/eval/compare-eval.py
+  s_3dc4d43033fcf1::t_75ae70a0340353 1-68
+tools/local-jev/hiai-gen.py
+  s_3dc4d43033fcf1::t_7b0c92e33ddb86 1-1116
+entry/src/main/cpp/hiai/c/hiai_error_types.h
+  s_3dc4d43033fcf1::t_959f9799f80568 1-44
+tools/local-jev/laya-export.py
+  s_3dc4d43033fcf1::t_3460d8fffa3744 11,13-15,34-52,56-57
+docs/local-jev/cpu-vs-npu-vs-cloud.md
+  s_3dc4d43033fcf1::t_ce3c9c3604baca 1-236
+entry/src/main/cpp/CMakeLists.txt
+  s_3dc4d43033fcf1::t_66747f3dd306aa 16,170-177
+entry/src/main/cpp/types/libmsnnrt/oh-package.json5
+  s_3dc4d43033fcf1::t_cfaecab19ebd8d 1-5
+entry/src/main/cpp/types/libmsnnrt/index.d.ts
+  s_3dc4d43033fcf1::t_6df709fe6dadb9 1-11
+entry/src/main/cpp/hiai/c/hiai_execute_option_types.h
+  s_3dc4d43033fcf1::t_765ca77fc24173 1-48
+entry/src/main/ets/entryability/EntryAbility.ets
+  s_3dc4d43033fcf1::t_c7a883a7280a9d 9-15,81-85,132-142,351-501,513-533
+entry/src/main/cpp/hiai/interface/attr_def.h
+  s_3dc4d43033fcf1::t_8e87b3b76f5323 1-58
+native/local-jev/src/laya.rs
+  s_3dc4d43033fcf1::t_be5a02d9849d38 1-2,4,22-26,28,33-44,55-74,231-237,331-342,356-359,369-371,382-384,415-416,427-437,440,445,450,456-457,460-461,464,487-488,501-532,564-567,569-573,580,587-590,595-597,605-606,611,613,618,631-780,787-808,858-939,958-971,1081-1084,1118-1119,1125
+entry/src/main/cpp/hiai/c/hiai_built_model_types.h
+  s_3dc4d43033fcf1::t_8214ab6022bb52 1-31
+entry/src/main/cpp/hiai/interface/func_macro_def.h
+  s_3dc4d43033fcf1::t_89ff427289e808 1-84
+entry/src/main/cpp/hiai/c/hiai_version.h
+  s_3dc4d43033fcf1::t_7c97084e3450f6 1-31
+tools/local-jev/service.js
+  s_3dc4d43033fcf1::t_45923a4f15535b 1-99
+docs/local-jev/host-eval.md
+  s_3dc4d43033fcf1::t_1116b85acc4f11 1-101
+tools/local-jev/eval/calibrate.py
+  s_3dc4d43033fcf1::t_fd240dd2309c3c 1-72
+entry/src/main/ets/vera/LocalJevSpike.ets
+  s_3dc4d43033fcf1::t_40b7130171fa88 1-43
+tools/local-jev/eval/laya-numpy-ref.py
+  s_3dc4d43033fcf1::t_28299110d15121 1-305
+entry/src/main/cpp/hiai/graph/types.h
+  s_3dc4d43033fcf1::t_7342010bee5d06 1-158
+tools/local-jev/convert_openjev_to_ms.py
+  s_3dc4d43033fcf1::t_1d48c3a1b4420c 1-274
+entry/src/main/ets/vera/SettingsStore.ets
+  s_3dc4d43033fcf1::t_54dbe4be037cc5 141-149,182,204,323-345
+entry/src/main/ets/vera/MsNnrtSpike.ets
+  s_3dc4d43033fcf1::t_a7cb734926d049 1-123
+docs/local-jev/replacement-analysis.md
+  s_3dc4d43033fcf1::t_8fca8b6ec8d4ad 1-978
+tools/local-jev/hiai_exec.py
+  s_3dc4d43033fcf1::t_eb9808d5085dbf 1-226
+entry/src/main/cpp/hiai/interface/op_def.h
+  s_3dc4d43033fcf1::t_264dfc1c5a8b3b 1-66
+entry/src/main/cpp/napi_msnnrt.cpp
+  s_3dc4d43033fcf1::t_17592a2826bfab 1-1854
+entry/src/main/ets/pages/SettingsPage.ets
+  s_3dc4d43033fcf1::t_6750f6ac3860e8 11-13,15
+entry/oh-package-lock.json5
+  s_3dc4d43033fcf1::t_712557f5589e1a 11,28-33
+entry/src/main/cpp/hiai/c/hiai_built_model.h
+  s_3dc4d43033fcf1::t_7fd461650c3e86 1-64
+tools/local-jev/eval/openjev-eval.py
+  s_3dc4d43033fcf1::t_0bab2e1902f55e 1-55
+entry/src/main/cpp/hiai/c/hiai_model_manager_types.h
+  s_3dc4d43033fcf1::t_79d68c0f3d9c51 1-57
+entry/src/main/cpp/hiai/graph/attr_value.h
+  s_3dc4d43033fcf1::t_30a9629e617a53 1-37
+entry/oh-package.json5
+  s_3dc4d43033fcf1::t_84cc07371ec446 12-13
+entry/src/main/cpp/hiai/interface/attr_map_def.h
+  s_3dc4d43033fcf1::t_f61e1503def19f 1-39
+native/local-jev/Cargo.toml
+  s_3dc4d43033fcf1::t_17bba7cf44f4c9 18
+entry/src/main/cpp/napi_local_jev.cpp
+  s_3dc4d43033fcf1::t_078c6c6a0a9726 1-4,17-19,23,35-52,57-59,83,86-87,116-161,167-170,172
+entry/src/main/cpp/hiai/interface/shape_def.h
+  s_3dc4d43033fcf1::t_19e7e095d6e77c 1-37
+entry/src/main/cpp/hiai/c/hiai_model_builder_types.h
+  s_3dc4d43033fcf1::t_10b5696a2b4bff 1-195
+entry/src/main/cpp/hiai/c/hiai_base_types.h
+  s_3dc4d43033fcf1::t_ff7c090eef0bea 1-66
+entry/src/main/cpp/hiai/interface/graph_def.h
+  s_3dc4d43033fcf1::t_3bc70031e0a5de 1-52
+docs/local-jev/on-device-model-summary.html
+  s_3dc4d43033fcf1::t_99f13f5ca74a4e 1-252
+entry/src/main/ets/vera/VeraSelector.ets
+  s_3dc4d43033fcf1::t_7af03e903ee625 14-15,17-21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "5.30.1",
+  "base_commit_sha": "55358e28f32b854d39a9547da4652718c45ea136",
+  "prompts": {},
+  "sessions": {
+    "s_3dc4d43033fcf1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "27d66f03-bad8-410c-b34e-7c3feb097f81",
+        "model": "deepseek-v4.1-flash-1017"
+      },
+      "human_author": "Yuqiang Xian <xianyuqiang@huawei.com>",
+      "total_additions": 0,
+      "total_deletions": 1,
+      "overridden_lines": 0,
+      "turn_models": {
+        "t_11925838176675": "deepseek-v4.1-flash-1017",
+        "t_22930e5a725b36": "deepseek-v4.1-flash-1017",
+        "t_250cb5a1952d8e": "deepseek-v4.1-flash-1017",
+        "t_271538fe9ff78f": "deepseek-v4.1-flash-1017",
+        "t_2ea214c98f7efd": "deepseek-v4.1-flash-1017",
+        "t_5685555c9b1a44": "deepseek-v4.1-flash-1017",
+        "t_6152c96e9cddfa": "deepseek-v4.1-flash-1017",
+        "t_7139219871e5b8": "deepseek-v4.1-flash-1017",
+        "t_7f3c49cbbf720f": "deepseek-v4.1-flash-1017",
+        "t_89d3334e3b3c32": "deepseek-v4.1-flash-1017",
+        "t_a33873441bb0ee": "deepseek-v4.1-flash-1017",
+        "t_b409ed8b434c48": "deepseek-v4.1-flash-1017",
+        "t_c532bf33dbe175": "deepseek-v4.1-flash-1017",
+        "t_d45dc50e383c51": "deepseek-v4.1-flash-1017",
+        "t_d8a06efb64da13": "deepseek-v4.1-flash-1017",
+        "t_dade1aaf07faec": "deepseek-v4.1-flash-1017",
+        "t_e38331589f0c5e": "deepseek-v4.1-flash-1017"
+      },
+      "model_totals": {
+        "deepseek-v4.1-flash-1017": {
+          "additions": 52,
+          "deletions": 123
+        }
+      }
+    }
+  }
+}
