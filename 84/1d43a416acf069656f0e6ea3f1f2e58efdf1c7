@@ -1,0 +1,57 @@
+docs/local-selector-integration.md
+  s_3dc4d43033fcf1::t_34546bf7339c25 146-165,168-169
+entry/src/main/ets/pages/GeneratePage.ets
+  s_3dc4d43033fcf1::t_89934ebfbdeb36 728-729,2894-2895,2897,2908-2909
+entry/src/main/ets/vera/SelectorMetrics.ets
+  s_3dc4d43033fcf1::t_758b452d8e43c1 32-33,51,154-174,178,180-183,197-198,220-222
+entry/src/main/ets/vera/VeraCompose.ets
+  s_3dc4d43033fcf1::t_75c77099332c49 33,4801-4806,4810-4813,4821-4824
+entry/src/main/ets/vera/VeraRunLog.ets
+  s_3dc4d43033fcf1::t_4ef0c19963a79a 41-43,49,51-52
+tools/vera-harness/selector-metrics-check.js
+  s_3dc4d43033fcf1::t_b2cb59646c110f 34,41-53,139
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "5.30.1",
+  "base_commit_sha": "841d43a416acf069656f0e6ea3f1f2e58efdf1c7",
+  "prompts": {},
+  "sessions": {
+    "s_3dc4d43033fcf1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "27d66f03-bad8-410c-b34e-7c3feb097f81",
+        "model": "deepseek-v4.1-flash-1017"
+      },
+      "human_author": "Yuqiang Xian <xianyuqiang@huawei.com>",
+      "total_additions": 0,
+      "total_deletions": 1,
+      "overridden_lines": 0,
+      "turn_models": {
+        "t_11925838176675": "deepseek-v4.1-flash-1017",
+        "t_22930e5a725b36": "deepseek-v4.1-flash-1017",
+        "t_250cb5a1952d8e": "deepseek-v4.1-flash-1017",
+        "t_271538fe9ff78f": "deepseek-v4.1-flash-1017",
+        "t_2ea214c98f7efd": "deepseek-v4.1-flash-1017",
+        "t_5685555c9b1a44": "deepseek-v4.1-flash-1017",
+        "t_6152c96e9cddfa": "deepseek-v4.1-flash-1017",
+        "t_7139219871e5b8": "deepseek-v4.1-flash-1017",
+        "t_7f3c49cbbf720f": "deepseek-v4.1-flash-1017",
+        "t_89d3334e3b3c32": "deepseek-v4.1-flash-1017",
+        "t_a33873441bb0ee": "deepseek-v4.1-flash-1017",
+        "t_b409ed8b434c48": "deepseek-v4.1-flash-1017",
+        "t_c532bf33dbe175": "deepseek-v4.1-flash-1017",
+        "t_d45dc50e383c51": "deepseek-v4.1-flash-1017",
+        "t_d8a06efb64da13": "deepseek-v4.1-flash-1017",
+        "t_dade1aaf07faec": "deepseek-v4.1-flash-1017",
+        "t_e38331589f0c5e": "deepseek-v4.1-flash-1017"
+      },
+      "model_totals": {
+        "deepseek-v4.1-flash-1017": {
+          "additions": 52,
+          "deletions": 123
+        }
+      }
+    }
+  }
+}
