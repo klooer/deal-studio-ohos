@@ -1,0 +1,40 @@
+entry/src/main/ets/components/VeraPreview.ets
+  s_3dc4d43033fcf1::t_81c52abb99f91e 3302-3309,3344-3348,3350,3353,3363-3367
+entry/src/main/ets/runtime/EffectController.ets
+  s_3dc4d43033fcf1::t_29e7314a13ea2a 8,10-11,116,121,269-273,278-279,335-341
+entry/src/main/ets/vera/VeraUi.ets
+  s_3dc4d43033fcf1::t_a6afae85eaa42b 450-452,1046-1048
+tools/vera-harness/chat-handoff-check.js
+  s_3dc4d43033fcf1::t_c70d01f3065d2d 12-18
+tools/vera-harness/host-effects-check.js
+  s_3dc4d43033fcf1::t_2f8ae75ff369e3 102,135-142,536-565
+tools/vera-harness/in-process-host-check.js
+  s_3dc4d43033fcf1::t_c8f0651ca62fd3 401-406,763,776-778,780,977,984-986,1810-1811
+tools/vera-harness/live-check.js
+  s_3dc4d43033fcf1::t_d0cff094a5feb9 72,95,104
+tools/vera-harness/preview-host-check.js
+  s_3dc4d43033fcf1::t_73a1b6732fbdf0 299-300,1709-1750
+tools/vera-harness/runtime-vm-check.js
+  s_3dc4d43033fcf1::t_62521ba623c1d9 7-8,49-64
+tools/vera-harness/visual-check.js
+  s_3dc4d43033fcf1::t_090205dcd5f38d 125
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "5.30.1",
+  "base_commit_sha": "927e5e12eb6c7a0c0f087731a5b829cba9f4e99c",
+  "prompts": {},
+  "sessions": {
+    "s_3dc4d43033fcf1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "27d66f03-bad8-410c-b34e-7c3feb097f81",
+        "model": "unknown"
+      },
+      "human_author": "Yuqiang Xian <xianyuqiang@huawei.com>",
+      "total_additions": 0,
+      "total_deletions": 0,
+      "overridden_lines": 0
+    }
+  }
+}
