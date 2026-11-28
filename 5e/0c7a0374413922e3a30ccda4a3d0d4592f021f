@@ -1,0 +1,387 @@
+entry/src/main/ets/pages/SettingsPage.ets
+  s_3dc4d43033fcf1::t_6152c96e9cddfa 97
+  s_3dc4d43033fcf1::t_85b0c6abfc96d9 1,3,23-24,42-43,51-54,75-79,82-94,181-194,197,253-266,274,277-278,282,286
+entry/src/main/cpp/CMakeLists.txt
+  s_3dc4d43033fcf1::t_e38331589f0c5e 16
+  s_3dc4d43033fcf1::t_58b0adbf71c5cd 13-15
+  s_3dc4d43033fcf1::t_06175878b4b4c3 17-19
+  s_3dc4d43033fcf1::t_999ae27dd5337f 7-12,20-25
+native/local-jev/src/laya.rs
+  s_3dc4d43033fcf1::t_271538fe9ff78f 564,572-574
+  s_3dc4d43033fcf1::t_c532bf33dbe175 506,517,520-521
+  s_3dc4d43033fcf1::t_2ea214c98f7efd 4
+  s_3dc4d43033fcf1::t_7f3c49cbbf720f 220,608-609,613,1042,1082-1087,1101-1104,1110-1111,1113-1116,1118-1119,1121-1122
+  s_3dc4d43033fcf1::t_bb508ef855d286 217-219
+  s_3dc4d43033fcf1::t_7e8eb3d5bd748f 221
+  s_3dc4d43033fcf1::t_c3ab680cfa8ed8 605-607
+  s_3dc4d43033fcf1::t_a43a000a48ed37 610
+  s_3dc4d43033fcf1::t_90eb9011e8b605 614-616
+  s_3dc4d43033fcf1::t_a8be22bdbded28 1043
+  s_3dc4d43033fcf1::t_23debca3bb417f 1081
+  s_3dc4d43033fcf1::t_b630f2766a4036 1123-1124
+  s_3dc4d43033fcf1::t_8dca3216845c02 17,205-216,534,537,545-554,562,578,587,589-591,617,1047,1074-1075
+CHANGELOG.md
+  s_3dc4d43033fcf1::t_a541dd1f1c1c77 3-59
+docs/agent.md
+  s_3dc4d43033fcf1::t_69fc79ba459ef7 7-8
+docs/local-jev-shared-q8-reproduction.md
+  s_3dc4d43033fcf1::t_97f9c73f0238a7 1-421
+docs/local-selector-integration.md
+  s_3dc4d43033fcf1::t_d9944750e9f860 1-248
+docs/local-selector-typesafe-comparison.md
+  s_3dc4d43033fcf1::t_8c98f459b78343 1-158
+docs/local-selector-verification.md
+  s_3dc4d43033fcf1::t_52d24c499c6900 1-411
+docs/multiscreen-agent.md
+  s_3dc4d43033fcf1::t_cfad15a181ac9b 1-50
+docs/multiscreen-runtime.md
+  s_3dc4d43033fcf1::t_87b421b1e2e090 1-52
+docs/std-ui.md
+  s_3dc4d43033fcf1::t_f1c7190c1ec281 72,293-304,545-553,561
+entry/src/main/cpp/napi_llama.cpp
+  s_3dc4d43033fcf1::t_f8ed37c2f0b493 98,116-117
+entry/src/main/cpp/napi_local_jev.cpp
+  s_3dc4d43033fcf1::t_44b15556bbb088 1-4,6-10,14-26,29-59,61,64-80,83-113,116-119,121-126,128-130,133-155,157-159,162-174,177-179,181
+entry/src/main/cpp/types/liblocaljev/index.d.ts
+  s_3dc4d43033fcf1::t_bac0b59ad6eab0 1-4
+entry/src/main/cpp/types/liblocaljev/oh-package.json5
+  s_3dc4d43033fcf1::t_0ad8e15c5bbee2 5
+entry/src/main/ets/components/LaunchTrust.ets
+  s_3dc4d43033fcf1::t_00f137263a415f 27,31
+entry/src/main/ets/components/VeraLiveTree.ets
+  s_3dc4d43033fcf1::t_796bcb4fc5a80e 31,136,207-224,227,233-234,288-289,295,312-380
+entry/src/main/ets/components/VeraPreview.ets
+  s_3dc4d43033fcf1::t_f9498029ab61f1 13,23-24,28,30,34-154,215-220,222,234-235,389,391,395,399-401,408-428,456-457,540-571,659-660,673-682,689-695,713-714,720,736,738,745,748-763,765-775,798-1037,1057,1061,1070-1077,1081-1086,1088-1097,1127-1128,1130-1131,1296,1322-1323,1326-1327,1329,1341-1344,1346,1349-1352,1356-1359,1364-1373,1379-1386,1395-1396,1407-1464,1466-1467,1469-1472,1474-1478,1480-1527,1534,1544-1551,1554-1564,1572-1575,1578-1581,1583-1588,1590-1605,1607-1624,1627,1637,1641-1643,1646,1649,1651-1657,1663-1677,1679,1686,1689-1691,1714-1718,1723-1738,1742-1746,1755-1766,1768,1771-1775,1782-1783,1785,1791,1794,1796-1799,1805,1835-1843,1845-1848,1873,1875,1916-1917,1932,2001,2018,2031,2037,2041-2044,2047-2050,2055-2058,2060-2068,2093-2105,2107-2109,2113-2118,2126,2128-2129,2132,2285,2293,2295-2298,2394,2485-2486,2504,2509,2605,2623,2630-2638,2677,2688-2756,2760,2776,2784-2785,2801-2809,2811-2814,2822,2825,2827-2828,2830,2833-2834,2838-2839,2847-2848,2851-2852,2854-2855,2859,2879-2880,2882-2884,2889,2893-2894,2901-2903,2908-2909,2914-2915,2918-2922,2924-2934,2937-2944,2948-2949,2953-2967,2969-2971,2973-2986,2988-2990,2993-3012,3015-3070,3072-3157,3162-3163,3165-3166,3169-3232,3235-3236,3239,3243-3244,3248-3249,3253-3254,3274,3669,3714-3717,3722-3723,3730-3732,3771-3772,3788,3810-3815,3820-3833,3835,4279,4445-4459,5201,5208,5232,5236,5741,6269-6329
+entry/src/main/ets/entryability/EntryAbility.ets
+  s_3dc4d43033fcf1::t_4a64c01f7c165a 16,28,37,75,89,124-126,143-149,164-173,697-702
+entry/src/main/ets/pages/ChatPage.ets
+  s_3dc4d43033fcf1::t_1f9c75bda22194 827-832,834-846,848-849,921-937
+entry/src/main/ets/pages/GeneratePage.ets
+  s_3dc4d43033fcf1::t_7a76ae415670c9 20,26,47-48,68,333,350-351,376-377,525-526,535,561-562,666-680,723-729,784-785,916-917,1053,1133,1218,1229,1232-1235,1354-1355,1403,1489,1522,1525,1528-1529,1617-1635,1644,1774-1777,1827,1886-1887,2133,2135,2141-2161,2166-2169,2190,2247-2253,2282-2377,2390,2454-2455,2459-2460,2532-2536,2889-2913,3002,3418,3449,3517-3528,3539-3566,3584,3979,4157,4216,4218,4236-4241,4248
+entry/src/main/ets/runtime/AppActor.ets
+  s_3dc4d43033fcf1::t_3dfaa7391ca6dc 1-395
+entry/src/main/ets/runtime/EffectController.ets
+  s_3dc4d43033fcf1::t_0b02de58a27870 1-273
+entry/src/main/ets/runtime/HostEffectsBridge.ets
+  s_3dc4d43033fcf1::t_f349257532e38b 1-289
+entry/src/main/ets/runtime/InProcessHost.ets
+  s_3dc4d43033fcf1::t_433ae1981ea28d 1-1210
+entry/src/main/ets/runtime/shared/Messages.ets
+  s_3dc4d43033fcf1::t_2fd5c8dcb886ba 1-138
+entry/src/main/ets/runtime/trace/StageTrace.ets
+  s_3dc4d43033fcf1::t_7526c9a644d1d2 1-144
+entry/src/main/ets/vera/FormBindings.ets
+  s_3dc4d43033fcf1::t_ffa36420106158 111-132
+entry/src/main/ets/vera/JevProxy.ets
+  s_3dc4d43033fcf1::t_9ac2d77d7a10f6 45,78,278,290,299-302,310,325-326,330,335,344,386-387,402-403,410,412-414,430,476-477,481,490,516,530,533,545
+entry/src/main/ets/vera/LiveWidgetPublish.ets
+  s_3dc4d43033fcf1::t_66b03059dbcd12 20-31,38-45
+entry/src/main/ets/vera/LlamaEngine.ets
+  s_3dc4d43033fcf1::t_fe6bd1fb8ca1fd 20
+entry/src/main/ets/vera/LocalJev.ets
+  s_3dc4d43033fcf1::t_dd0f37920af496 1-71
+entry/src/main/ets/vera/NeedsChoose.ets
+  s_3dc4d43033fcf1::t_f69f8423d7f087 15-16,309,325-326,353-367,373-375,406-410,419-420,429-433,444,449-460
+entry/src/main/ets/vera/NeedsPlan.ets
+  s_3dc4d43033fcf1::t_afb606094295ce 42-45,62-74,76-77,81-87,116,137-147,197-199,239,253,260-267,288-289,293-372,426-432,445-494,565-571,590-592
+entry/src/main/ets/vera/ProjectStore.ets
+  s_3dc4d43033fcf1::t_1554143ab78c49 111-112
+entry/src/main/ets/vera/ScreenPlan.ets
+  s_3dc4d43033fcf1::t_9d8882943ceed3 19,101-102
+entry/src/main/ets/vera/SectionFillApp.ets
+  s_3dc4d43033fcf1::t_5d34403bc0f0d5 7,56
+entry/src/main/ets/vera/SelectorMetrics.ets
+  s_3dc4d43033fcf1::t_92d3126ea7183b 1-196
+entry/src/main/ets/vera/SettingsStore.ets
+  s_3dc4d43033fcf1::t_4ebc3cebbde131 29,92-95,150-151,183-185,205,249-272,314-316,320-321
+entry/src/main/ets/vera/VeraAppRefine.ets
+  s_3dc4d43033fcf1::t_0ebf8511486067 1-43
+entry/src/main/ets/vera/VeraCamera.ets
+  s_3dc4d43033fcf1::t_8e3f1865f44122 1-340
+entry/src/main/ets/vera/VeraChat.ets
+  s_3dc4d43033fcf1::t_d89c763e7eafc3 21,761-762,789-795,850,925
+entry/src/main/ets/vera/VeraCompiler.ets
+  s_3dc4d43033fcf1::t_b45cec498b95b4 1305,3202-3211
+entry/src/main/ets/vera/VeraComposition.ets
+  s_3dc4d43033fcf1::t_6a3d09a379350a 31,486-491
+entry/src/main/ets/vera/VeraIntentRegistry.ets
+  s_3dc4d43033fcf1::t_7ceb969a9a0280 27,146-150
+entry/src/main/ets/vera/VeraPermissions.ets
+  s_3dc4d43033fcf1::t_1a6aea16775029 37-61
+entry/src/main/ets/vera/VeraReachability.ets
+  s_3dc4d43033fcf1::t_e1ccbca9ede6b8 1-207
+entry/src/main/ets/vera/VeraRunLog.ets
+  s_3dc4d43033fcf1::t_0d14d68c4ba108 3,41,44-49
+entry/src/main/ets/vera/VeraSdkBackend.ets
+  s_3dc4d43033fcf1::t_d343035dda408e 43,48,202-246,1384-1386
+entry/src/main/ets/vera/VeraSdkContracts.ets
+  s_3dc4d43033fcf1::t_266d4a0a5ad7fa 19-22
+entry/src/main/ets/vera/VeraSectionCompose.ets
+  s_3dc4d43033fcf1::t_d5cd6b408aa373 977-982,984
+entry/src/main/ets/vera/VeraSelector.ets
+  s_3dc4d43033fcf1::t_b9625b30babdf8 1-84
+entry/src/main/ets/vera/VeraSmoke.ets
+  s_3dc4d43033fcf1::t_abd3f145a02852 19,61,63-68,73-89,118-123,143-148,166-202
+entry/src/main/ets/vera/VeraTemplates.ets
+  s_3dc4d43033fcf1::t_70fa3b7c7ee8b4 4009-4040
+entry/src/main/ets/vera/VeraTiming.ets
+  s_3dc4d43033fcf1::t_1d30968f6f955b 44-56
+entry/src/main/ets/vera/VeraUi.ets
+  s_3dc4d43033fcf1::t_08ba86d34ee980 20-21,261-275,504-508,555-562,1086-1088
+entry/src/main/ets/vera/VeraUiCatalog.ets
+  s_3dc4d43033fcf1::t_c46e225afc7630 94,175-179,188-194,329,478,660
+entry/src/main/ets/vera/agent/AgentAppContract.ets
+  s_3dc4d43033fcf1::t_f84792c495e38a 1-85
+entry/src/main/ets/vera/agent/AgentAppHost.ets
+  s_3dc4d43033fcf1::t_42d1933519ecb2 7,64,67
+entry/src/main/ets/vera/agent/AgentCustom.ets
+  s_3dc4d43033fcf1::t_8c55da91f5c8d5 22-24,117-121,134-135,137,178-179,201-205,228-230,376,379,381-384,428,438-443,467-469,477-478,529,542
+entry/src/main/ets/vera/agent/AgentHole.ets
+  s_3dc4d43033fcf1::t_67f438f91edbc3 9,12,119-135,166,233
+entry/src/main/ets/vera/agent/AgentHost.ets
+  s_3dc4d43033fcf1::t_7b43e225197da1 47-48
+entry/src/main/ets/vera/agent/AgentRepair.ets
+  s_3dc4d43033fcf1::t_f09676848d89d8 13-16,34,36-38,63,68-69,75-76
+entry/src/main/ets/vera/agent/AgentSectionEdit.ets
+  s_3dc4d43033fcf1::t_11df6e2e8ae6e8 1-114
+entry/src/main/ets/vera/agent/AgentSurfaceEdit.ets
+  s_3dc4d43033fcf1::t_dc7e6f8bb35d5b 48-52,78-86,99-103,112-113,122-123,129-130,138,144-147,159-165
+entry/src/main/ets/vera/agent/VeraAgent.ets
+  s_3dc4d43033fcf1::t_e4ca44bbfa308b 25,177-224
+entry/src/main/ets/vera/agent/VeraBuildRoute.ets
+  s_3dc4d43033fcf1::t_70efbea2d337f8 64-65
+entry/src/main/ets/widget/pages/LiveCard.ets
+  s_3dc4d43033fcf1::t_730b4bdf36bc89 97
+entry/src/main/module.json5
+  s_3dc4d43033fcf1::t_e1669d6d37e642 69-73,76,78,88,100
+entry/src/main/resources/base/element/string.json
+  s_3dc4d43033fcf1::t_eccc17d38ff826 26-29
+entry/src/main/resources/rawfile/vera-skill.txt
+  s_3dc4d43033fcf1::t_2ad02d77dca817 41-42,49-50,82-86,116,128-132
+native/local-jev/README.md
+  s_3dc4d43033fcf1::t_46708e3a0bb0b3 3-12,16-19,22,24-46,52-57,72-77,82-93,97-112,114-132,145-149,152-153,156,164,166-199,201-203,205-208
+native/local-jev/build.rs
+  s_3dc4d43033fcf1::t_faa65ccc2c38ab 1-5,7-10,12,15-19,21-60,62-64,66
+native/local-jev/include/local_jev.h
+  s_3dc4d43033fcf1::t_ff621721d20f10 19-28
+native/local-jev/src/bin/local-jev-shared.rs
+  s_3dc4d43033fcf1::t_c9e43a37331c5b 1-63
+native/local-jev/src/bin/local-laya.rs
+  s_3dc4d43033fcf1::t_eb435ed3077123 11,21,39,51-54
+native/local-jev/src/lib.rs
+  s_3dc4d43033fcf1::t_083b71cf4c946b 5,16,103-115,358-424,452-475,481-483,508,512-600,602,604-605
+native/local-jev/src/shared_experimental.rs
+  s_3dc4d43033fcf1::t_51e03e4ade7ade 1-261
+native/local-jev/tests/experimental.rs
+  s_3dc4d43033fcf1::t_706a1b0be599c0 1-98
+signing/UnsgnedReleasedProfileTemplate.json
+  s_3dc4d43033fcf1::t_9fcbd4a217df41 22,24,34
+tools/local-jev/abi-check.c
+  s_3dc4d43033fcf1::t_9857b9d6418e64 27-29,35-44,46-47,52-59
+tools/local-jev/build-candle-patched.sh
+  s_3dc4d43033fcf1::t_a9bd8114a83879 1-50
+tools/local-jev/candle-row-scheduling.patch
+  s_3dc4d43033fcf1::t_7bab86ca15ca36 1-24
+tools/local-jev/device-bench.c
+  s_3dc4d43033fcf1::t_ab0d090cc671cb 1-89
+tools/local-jev/host-selector.js
+  s_3dc4d43033fcf1::t_e3026a3901fc54 1-35
+tools/local-jev/integration-check.js
+  s_3dc4d43033fcf1::t_ff91a1cba4afea 1-50
+tools/model-catalog.py
+  s_3dc4d43033fcf1::t_ace88da5808057 65-87,509,511,517,519
+tools/vera-bench/README.md
+  s_3dc4d43033fcf1::t_ccee987b98d901 1-23
+tools/vera-bench/bench-transport-check.py
+  s_3dc4d43033fcf1::t_eb5d309a469140 1-28
+tools/vera-bench/bench.sh
+  s_3dc4d43033fcf1::t_dc59b81d3f33a1 5,46-66,95-101,116-117
+tools/vera-bench/report.py
+  s_3dc4d43033fcf1::t_2f2befefcc13d9 17,92-156,160,169-170,172,179-184,197-198,204-205,212-222,292-293,296-297
+tools/vera-harness/README.md
+  s_3dc4d43033fcf1::t_fe306bfb8ad931 13-28,96-121
+tools/vera-harness/agent-run.js
+  s_3dc4d43033fcf1::t_127e8a11390a80 5,7-8,16-21,53-56,75-109,117-119,124,134,140,164-167,175-204,227,233-241,263-281,285,287-290,293,297-524,527-533,555,557,569,577,580-582,592-594,597
+tools/vera-harness/app-actor-check.js
+  s_3dc4d43033fcf1::t_294e0ec8812b9b 1-1175
+tools/vera-harness/app-plan-check.js
+  s_3dc4d43033fcf1::t_739677cdc84d7d 1,4-5,7-10,12-13,15-23,25-35,37-38,40-169,171-200,202
+tools/vera-harness/caller-snapshot-check.js
+  s_3dc4d43033fcf1::t_33fbabb0975c75 1-308
+tools/vera-harness/camera-review-check.js
+  s_3dc4d43033fcf1::t_cec6e79e909240 1-8,13-26,29-41,44-62,65-119,121-139
+tools/vera-harness/capability-check.js
+  s_3dc4d43033fcf1::t_ef3ee2c35f5572 17,32-34,83-154,156
+tools/vera-harness/chat-handoff-check.js
+  s_3dc4d43033fcf1::t_8304ccf4b9cfd4 18,30,42,179,213,226,301,399
+tools/vera-harness/chat-prompt-check.js
+  s_3dc4d43033fcf1::t_0ebd3e65497b3a 37-46
+tools/vera-harness/chat-run.js
+  s_3dc4d43033fcf1::t_577595c17b3659 1-99
+tools/vera-harness/fixtures/app-plan/notes-section.txt
+  s_3dc4d43033fcf1::t_0f53b69f165fb8 1-74
+tools/vera-harness/hole-run.js
+  s_3dc4d43033fcf1::t_b354cebdda0632 1-11,13-14,18,20,23,25-46,49-61,63-68,71-72,74-99,102-132,134-138
+tools/vera-harness/host-effects-check.js
+  s_3dc4d43033fcf1::t_00439df1f11580 1-1623
+tools/vera-harness/host-lookup.js
+  s_3dc4d43033fcf1::t_dbcf84da3a4a02 1-226
+tools/vera-harness/in-process-host-check.js
+  s_3dc4d43033fcf1::t_8a477e8b5ee1af 1-2642
+tools/vera-harness/live-form-check.js
+  s_3dc4d43033fcf1::t_81077c5747c0e9 7,27,160-230
+tools/vera-harness/live-widget-check.js
+  s_3dc4d43033fcf1::t_cc191c5c490e40 8-9,72-73,78-129,149,170,242,291,330,393,405,420,431,441,446,464,468,471,479,488,499,509,515,532,573,622,673,739,784,796
+tools/vera-harness/local-date-time-check.js
+  s_3dc4d43033fcf1::t_675fbfe7d52595 1,4,7-70
+tools/vera-harness/local-selector-check.js
+  s_3dc4d43033fcf1::t_6640b95fbb110c 1-101
+tools/vera-harness/manifest.js
+  s_3dc4d43033fcf1::t_8c55ad04a40def 1-106
+tools/vera-harness/model-tap.js
+  s_3dc4d43033fcf1::t_e8ef67748dc72c 1-105
+tools/vera-harness/models-check.js
+  s_3dc4d43033fcf1::t_85e9abff0db787 15-21,145,157,160,230,233,239-243
+tools/vera-harness/multiscreen-check.js
+  s_3dc4d43033fcf1::t_fbcfe90759bd67 1-143
+tools/vera-harness/offline-baseline-check.js
+  s_3dc4d43033fcf1::t_6b5208a6ccd6f2 1-441
+tools/vera-harness/offline-baseline.js
+  s_3dc4d43033fcf1::t_e8d484e42c229a 1-376
+tools/vera-harness/preview-fixture.js
+  s_3dc4d43033fcf1::t_33d20ad3ea1b5b 3-6,8-20,22-34,37-81,84-87,90-101,103-104
+tools/vera-harness/preview-host-check.js
+  s_3dc4d43033fcf1::t_b5952f373f685b 1-1750
+tools/vera-harness/project-delete-check.js
+  s_3dc4d43033fcf1::t_c8cab0782fe147 59,112,114-121,387-514
+tools/vera-harness/prompt-check.js
+  s_3dc4d43033fcf1::t_b43eed9587e182 39,47,207,210-211,221,225-226,234,237,240,242,244,249,254-255,498,647-694
+tools/vera-harness/proof-sheet.js
+  s_3dc4d43033fcf1::t_eb98420de2908b 149
+tools/vera-harness/reachability-check.js
+  s_3dc4d43033fcf1::t_4a464bec7d3e8a 1,4-5,8,10-12,14-32,34-39,41-45,47-90
+tools/vera-harness/run-all.js
+  s_3dc4d43033fcf1::t_5290b755f80371 1-229
+tools/vera-harness/runtime-baseline-check.js
+  s_3dc4d43033fcf1::t_59a4709c5439d9 1-197
+tools/vera-harness/runtime-baseline.js
+  s_3dc4d43033fcf1::t_03ebf3e0d2faea 1-346
+tools/vera-harness/runtime-messages-check.js
+  s_3dc4d43033fcf1::t_9f805f134bcf32 1,4-29,31-34,36-39,41-54,56-90,92-104,106-126,128-203,205-207,209-218
+tools/vera-harness/runtime-performance-check.js
+  s_3dc4d43033fcf1::t_28cf03d365b40e 1-229
+tools/vera-harness/runtime-performance.js
+  s_3dc4d43033fcf1::t_08a6d58a160adc 1-327
+tools/vera-harness/runtime-run.js
+  s_3dc4d43033fcf1::t_5b5774d1cd395a 1-11,13-23,25-33,35-36,38-46,49-55,57-65,67-72
+tools/vera-harness/selector-metrics-check.js
+  s_3dc4d43033fcf1::t_9ba0187e008f86 1-127
+tools/vera-harness/selector-settings-check.js
+  s_3dc4d43033fcf1::t_85ca34f1628d38 1-47
+tools/vera-harness/source-loader.js
+  s_3dc4d43033fcf1::t_2b7aa597ef8455 19-24,31-32
+tools/vera-harness/src/VeraSdkIndex.ts
+  s_3dc4d43033fcf1::t_0c58d241999469 20
+tools/vera-harness/stage-trace-baseline-check.js
+  s_3dc4d43033fcf1::t_fb1ed69d05bd0c 1-168
+tools/vera-harness/stage-trace-baseline.js
+  s_3dc4d43033fcf1::t_28fc6721aa6143 3-5,7-18,20-41,43-52,55-57,59-64,66-75,77-79,81-101,103-110,112-113
+tools/vera-harness/stage-trace-check.js
+  s_3dc4d43033fcf1::t_a20a599029d729 1-875
+tools/vera-harness/surface-edit-check.js
+  s_3dc4d43033fcf1::t_fd259d0c60b61e 12-17
+tools/vera-harness/surface-route-check.js
+  s_3dc4d43033fcf1::t_94eca416f174f2 16-17,20,22,28-29,39,119
+tools/vera-harness/template-compose-check.js
+  s_3dc4d43033fcf1::t_27e4b4bde2b171 2,30-31
+tools/vera-harness/template-fixture.js
+  s_3dc4d43033fcf1::t_40d45db27a031f 2-4,7-10,15,17-18,21-40,42,44,47-55,58-80,83-88
+tools/vera-harness/template-run-check.js
+  s_3dc4d43033fcf1::t_b6f575f5aa763a 131-132,140-143,155-173
+tools/vera-harness/template-suite.js
+  s_3dc4d43033fcf1::t_bee3c28642ce99 2-14,16,19-81,83-147,150-328,330-457,460-565,567-754,757-783,786-885,887,909-1057
+tools/vera-harness/texture-cache-check.js
+  s_3dc4d43033fcf1::t_9f09cdf9f54ecd 7
+tools/vera-harness/visual-check.js
+  s_3dc4d43033fcf1::t_da48ef5043903c 9,12-27,29-41,43-44,56-101,114-153,157,171,184,192,206,212,225,245,252-255,259-260,262,271,274-315,317-320,327,329,331-333,340,346,348,354,358,364,366-370,375,377,384-405,408,410-411,413-414,418-419,422-423,426-458,460,462-467,470-474,476-478,482,484,487-489,491-494,501-525,528-530,535-536,538-540,543,545,551,553-556,558-559,570-572,574-577,582,584-585,590-594,597-598,601,614,625,643-644,646,649,654-666,673-703,705,707,709,715-716,727,735,742-757,759-770,774-776,781-784,787-790,796-805,807,812,814-859,862,867,874,899-901,905,916-917,922,928,930-933,945-946,953,956,960-961,964-966,969-990,992,994-1001,1003-1004,1006,1010,1015,1030,1033-1034,1036,1039,1042-1045,1048-1049,1053-1057,1059-1060,1062-1064,1066-1067,1069-1070,1073,1080,1083-1086,1090-1094,1098-1101,1103-1104,1106-1108,1110,1116,1119-1122,1125,1127,1134,1142-1148,1150-1151,1154-1160,1163-1164,1166,1169,1175,1178,1181-1182,1187-1188,1193,1195,1202,1205-1206,1208,1213-1214,1216,1221,1224,1227-1228,1239-1259,1262-1264,1266,1268,1271,1273-1274,1276,1280-1281,1284,1286-1287,1290,1292-1293,1299-1300,1305,1307,1310-1311,1315,1317,1323-1324,1331-1345,1347-1350,1354-1356,1360-1366,1368,1371-1373,1376,1378-1379,1382,1387-1388,1394-1395,1398-1406,1408-1409,1411,1417,1419-1421,1425,1427,1430-1432,1439-1448,1450-1451,1453-1456,1462-1465,1469,1472,1474-1476,1479,1481,1483-1485,1487,1491-1495,1504-1518,1520-1521,1526,1529-1532,1536-1538,1542-1543,1546,1550,1552,1555,1557,1559-1565,1567,1573-1575,1578-1579,1581,1583-1585,1587,1590,1593,1595-1596,1598,1602-1603,1605,1609,1611,1614,1617-1618,1623,1628,1630,1633-1634,1636-1637,1639-1640,1642,1645-1647,1649-1650,1655,1657,1663,1669,1671-1672,1677-1680,1682-1686,1688-1694,1703-1709,1711-1712,1719-1720,1722-1724,1726,1731-1732,1734,1738,1740,1743,1746-1747,1750,1753,1755-1756,1759,1761-1762,1765-1766,1769-1770,1773,1775-1777,1779,1781,1784-1785,1788-1789,1791,1796-1797,1800,1810,1812,1815-1816,1823,1825,1837,1839,1842-1843,1846,1849,1858,1862,1864,1867,1869-1870,1874,1876,1878,1880-1881,1884-1885,1887,1893-1894,1898-1899,1901,1903,1905,1907-1908,1910-1913,1919,1921-1922,1924,1926,1931,1933-1934,1939-1941,1947,1949,1951,1953,1955,1960,1963-1964,1966,1970,1972-1973,1975,1978-1979,1982-1983,1986,1990,1996,2000-2001,2011-2015,2017-2043,2045-2046,2049,2053,2055-2061,2064-2066,2068,2070,2074,2076-2078,2080,2085,2087,2110-2117,2119-2135,2137-2153,2162-2163,2166-2167,2170-2172,2174-2175,2177-2179,2182-2183,2187,2192,2194-2195,2198,2203-2204,2206,2208,2211,2213,2217-2218,2221-2222,2227-2228,2230-2231,2234,2236-2251,2254-2261,2263,2284,2313,2320,2331
+tools/vera-harness/widget-launch-check.js
+  s_3dc4d43033fcf1::t_5e48e452516eb0 6,28,52-54,256,271,277,325,329-366,391,408,423-424,458,474,495,502,586
+tools/vera-harness/widget-refine-check.js
+  s_3dc4d43033fcf1::t_5625e736959600 8-9,28,76,125,133,142,153,160,192,259,339,373,385,399,428,436,449,453,480,484,496,500,534-535,539,573-575,582-583,593-614,701
+tools/vera-playground/README.md
+  s_3dc4d43033fcf1::t_d80eacb9cc406f 3,10-11,15-44,68-70,78-79,82,101-103,123-129,133-156
+tools/vera-playground/laya-check.js
+  s_3dc4d43033fcf1::t_78a51306728eaa 1,7,25,32,34-36,42
+tools/vera-playground/laya-stream.js
+  s_3dc4d43033fcf1::t_fef8adfdd76269 4-5,19,24,29-31,33,38-39,41,46,63,66,73-77,81,84,96
+tools/vera-playground/local-selector.js
+  s_3dc4d43033fcf1::t_c929b539237ac2 1,7-15,18-23,25-42,45-52,54-55
+tools/vera-playground/models/mmbert-shared-state-q8/GEMMA-TERMS.md
+  s_3dc4d43033fcf1::t_b49c5a025ca191 1-206
+tools/vera-playground/models/mmbert-shared-state-q8/LICENSE-MMBERT-MIT
+  s_3dc4d43033fcf1::t_4b128ea44bb8ae 1-28
+tools/vera-playground/models/mmbert-shared-state-q8/NOTICE
+  s_3dc4d43033fcf1::t_eee34971b5478e 1-6
+tools/vera-playground/models/mmbert-shared-state-q8/README.md
+  s_3dc4d43033fcf1::t_8673fb467554f4 1-33
+tools/vera-playground/models/mmbert-shared-state-q8/model.json
+  s_3dc4d43033fcf1::t_01b9ca9470a28f 1-31
+tools/vera-playground/models/mmbert-shared-state-q8/prohibited-use.md
+  s_3dc4d43033fcf1::t_cd0c662d187fff 1-38
+tools/vera-playground/models/mmbert-shared-state-q8/tokenizer.json
+  s_3dc4d43033fcf1::t_b0ee483626dee7 1
+tools/vera-playground/pipeline-check.js
+  s_3dc4d43033fcf1::t_f5d64b69ad497b 71,86-92,106-107,116,118,121-122,164-174,192,195,199,216,244,272-293,307-324,327-328
+tools/vera-playground/public/app.js
+  s_3dc4d43033fcf1::t_9c7805badb2644 5,67,82,84,87,128,131-132,144
+tools/vera-playground/public/index.html
+  s_3dc4d43033fcf1::t_bc65597fce88af 29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "5.30.1",
+  "base_commit_sha": "5e0c7a0374413922e3a30ccda4a3d0d4592f021f",
+  "prompts": {},
+  "humans": {
+    "h_a03eed9a33d93b": {
+      "author": "Yuqiang Xian <xianyuqiang@huawei.com>"
+    }
+  },
+  "sessions": {
+    "s_3dc4d43033fcf1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "27d66f03-bad8-410c-b34e-7c3feb097f81",
+        "model": "deepseek-v4.1-flash-1017"
+      },
+      "human_author": "Yuqiang Xian <xianyuqiang@huawei.com>",
+      "total_additions": 34,
+      "total_deletions": 115,
+      "overridden_lines": 0,
+      "turn_models": {
+        "t_22930e5a725b36": "deepseek-v4.1-flash-1017",
+        "t_250cb5a1952d8e": "deepseek-v4.1-flash-1017",
+        "t_271538fe9ff78f": "deepseek-v4.1-flash-1017",
+        "t_2ea214c98f7efd": "deepseek-v4.1-flash-1017",
+        "t_5685555c9b1a44": "deepseek-v4.1-flash-1017",
+        "t_6152c96e9cddfa": "deepseek-v4.1-flash-1017",
+        "t_7139219871e5b8": "deepseek-v4.1-flash-1017",
+        "t_7f3c49cbbf720f": "deepseek-v4.1-flash-1017",
+        "t_89d3334e3b3c32": "deepseek-v4.1-flash-1017",
+        "t_a33873441bb0ee": "deepseek-v4.1-flash-1017",
+        "t_b409ed8b434c48": "deepseek-v4.1-flash-1017",
+        "t_c532bf33dbe175": "deepseek-v4.1-flash-1017",
+        "t_d45dc50e383c51": "deepseek-v4.1-flash-1017",
+        "t_d8a06efb64da13": "deepseek-v4.1-flash-1017",
+        "t_dade1aaf07faec": "deepseek-v4.1-flash-1017",
+        "t_e38331589f0c5e": "deepseek-v4.1-flash-1017"
+      },
+      "model_totals": {
+        "deepseek-v4.1-flash-1017": {
+          "additions": 52,
+          "deletions": 122
+        }
+      }
+    }
+  }
+}
